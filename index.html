@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Precinct Map</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="styles/core.min.css" />
+    <link rel="stylesheet" href="styles/utilities.min.css" />
+    <style>
+      :root {
+        font-family: Inter, sans-serif;
+        font-feature-settings: "liga" 1, "calt" 1;
+      }
+      @supports (font-variation-settings: normal) {
+        :root {
+          font-family: InterVariable, sans-serif;
+        }
+      }
+    </style>
+
+    <!-- styling setup for default theming from storage -->
+    <script>
+      const htmlElement = document.documentElement;
+
+      const __FRANKEN__ = JSON.parse(
+        localStorage.getItem("__FRANKEN__") || "{}"
+      );
+
+      if (
+        __FRANKEN__.mode === "dark" ||
+        (!__FRANKEN__.mode &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        htmlElement.classList.add("dark");
+      } else {
+        htmlElement.classList.remove("dark");
+      }
+
+      htmlElement.classList.add(__FRANKEN__.theme || "uk-theme-zinc");
+      htmlElement.classList.add(__FRANKEN__.radii || "uk-radii-lg");
+      htmlElement.classList.add(__FRANKEN__.shadows || "uk-shadows-sm");
+      htmlElement.classList.add(__FRANKEN__.font || "uk-font-sm");
+    </script>
+
+    <script type="module" src="/styles/core.iife.js"></script>
+    <script type="module" src="/styles/icon.iife.js"></script>
+  </head>
+  <body
+    class="hidden bg-background font-geist-sans text-foreground antialiased md:block"
+  >
+    <div class="flex-1 space-y-4 p-8 pt-6">
+      <div class="flex items-center justify-between space-y-2">
+        <h2 class="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <div class="flex items-center space-x-2">
+          <button class="uk-btn uk-btn-ghost w-[260px]">
+            <div class="flex gap-x-2" uk-toggle="#demo">
+              <span class="size-4">
+                <uk-icon icon="map-pin"></uk-icon>
+              </span>
+              New York City
+            </div>
+          </button>
+          <!-- change visuals -->
+          <div class="uk-inline">
+            <button
+              class="uk-btn uk-btn-default uk-btn-icon"
+              aria-label="Customize"
+            >
+              <uk-icon icon="palette"></uk-icon>
+            </button>
+            <div
+              class="uk-card uk-card-body uk-drop w-96"
+              data-uk-drop="mode: click; offset: 8"
+            >
+              <div class="uk-h3">Customize</div>
+              <p class="mb-4 mt-1 text-muted-foreground">
+                Customize your Dashboard experience.
+              </p>
+              <uk-theme-switcher id="theme-switcher">
+                <select hidden>
+                  <optgroup data-key="theme" label="Theme">
+                    <option data-hex="#52525b" value="uk-theme-zinc" selected>
+                      Zinc
+                    </option>
+                    <option data-hex="#64748b" value="uk-theme-slate">
+                      Slate
+                    </option>
+                    <option data-hex="#78716c" value="uk-theme-stone">
+                      Stone
+                    </option>
+                    <option data-hex="#6b7280" value="uk-theme-gray">
+                      Gray
+                    </option>
+                    <option data-hex="#737373" value="uk-theme-neutral">
+                      Neutral
+                    </option>
+                    <option data-hex="#dc2626" value="uk-theme-red">Red</option>
+                    <option data-hex="#e11d48" value="uk-theme-rose">
+                      Rose
+                    </option>
+                    <option data-hex="#f97316" value="uk-theme-orange">
+                      Orange
+                    </option>
+                    <option data-hex="#16a34a" value="uk-theme-green">
+                      Green
+                    </option>
+                    <option data-hex="#2563eb" value="uk-theme-blue">
+                      Blue
+                    </option>
+                    <option data-hex="#facc15" value="uk-theme-yellow">
+                      Yellow
+                    </option>
+                    <option data-hex="#7c3aed" value="uk-theme-violet">
+                      Violet
+                    </option>
+                  </optgroup>
+                  <optgroup data-key="radii" label="Radii">
+                    <option value="uk-radii-none">None</option>
+                    <option value="uk-radii-sm">Small</option>
+                    <option value="uk-radii-md" selected>Medium</option>
+                    <option value="uk-radii-lg">Large</option>
+                  </optgroup>
+                  <optgroup data-key="shadows" label="Shadows">
+                    <option value="uk-shadows-none">None</option>
+                    <option value="uk-shadows-sm" selected>Small</option>
+                    <option value="uk-shadows-md">Medium</option>
+                    <option value="uk-shadows-lg">Large</option>
+                  </optgroup>
+                  <optgroup data-key="mode" label="Mode">
+                    <option data-icon="sun" value="light">Light</option>
+                    <option data-icon="moon" value="dark">Dark</option>
+                  </optgroup>
+                </select>
+              </uk-theme-switcher>
+            </div>
+          </div>
+          <!-- download dataset -->
+          <a
+            href="./data/"
+            download="nyc_data.csv"
+            class="uk-btn uk-btn-primary"
+            >Data</a
+          >
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <!-- <ul class="uk-tab-alt max-w-96">
+          <li class="uk-active">
+            <a href="#demo" uk-toggle>Overview</a>
+          </li>
+          <li>
+            <a href="#demo" uk-toggle>Analytics</a>
+          </li>
+          <li>
+            <a href="#demo" uk-toggle>Reports</a>
+          </li>
+          <li>
+            <a href="#demo" uk-toggle>Notifications</a>
+          </li>
+          <li></li>
+        </ul> -->
+
+        <!-- <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="uk-card">
+            <div
+              class="uk-card-header flex flex-row items-center justify-between"
+            >
+              <h3 class="text-sm font-medium tracking-tight">Total Revenue</h3>
+              <span class="size-4 text-muted-foreground">
+                <uk-icon icon="dollar-sign"></uk-icon>
+              </span>
+            </div>
+            <div class="uk-card-body">
+              <div class="text-2xl font-bold">$45,231.89</div>
+              <p class="text-xs text-muted-foreground">
+                +20.1% from last month
+              </p>
+            </div>
+          </div>
+
+          <div class="uk-card">
+            <div
+              class="uk-card-header flex flex-row items-center justify-between"
+            >
+              <h3 class="text-sm font-medium tracking-tight">Subscriptions</h3>
+              <span class="size-4 text-muted-foreground">
+                <uk-icon icon="users"></uk-icon>
+              </span>
+            </div>
+            <div class="uk-card-body">
+              <div class="text-2xl font-bold">+2350</div>
+              <p class="text-xs text-muted-foreground">
+                +180.1% from last month
+              </p>
+            </div>
+          </div>
+
+          <div class="uk-card">
+            <div
+              class="uk-card-header flex flex-row items-center justify-between"
+            >
+              <h3 class="text-sm font-medium tracking-tight">Sales</h3>
+              <span class="size-4 text-muted-foreground">
+                <uk-icon icon="credit-card"></uk-icon>
+              </span>
+            </div>
+            <div class="uk-card-body">
+              <div class="text-2xl font-bold">+12,234</div>
+              <p class="text-xs text-muted-foreground">+19% from last month</p>
+            </div>
+          </div>
+
+          <div class="uk-card">
+            <div
+              class="uk-card-header flex flex-row items-center justify-between"
+            >
+              <h3 class="text-sm font-medium tracking-tight">Active Now</h3>
+              <span class="size-4 text-muted-foreground">
+                <uk-icon icon="chart-line"></uk-icon>
+              </span>
+            </div>
+            <div class="uk-card-body">
+              <div class="text-2xl font-bold">+573</div>
+              <p class="text-xs text-muted-foreground">+201 since last hour</p>
+            </div>
+          </div>
+        </div> -->
+
+        <div class="grid lg:grid-cols-8 my_container">
+          <div class="uk-card overflow-y-clip lg:col-span-2" id="test">
+            <div class="uk-card-header backdrop-filter backdrop-blur-sm z-50">
+              <h3 class="font-semibold leading-none tracking-tight">NYC Map</h3>
+              <p class="text-sm text-muted-foreground">
+                Analyzed over 200,000+ data points
+              </p>
+            </div>
+            <div class="ml-4 w-full">
+              <div class="mb-2">
+                <div class="uk-form-label">Orientation:</div>
+                <div class="uk-form-controls mt-1">
+                  <label class="mr-2">
+                    <input
+                      class="uk-radio mr-1"
+                      type="radio"
+                      name="orientation"
+                      checked
+                      value="vertical"
+                    />
+                    Vertical
+                  </label>
+                  <label>
+                    <input
+                      class="uk-radio mr-1"
+                      type="radio"
+                      name="orientation"
+                      value="horizontal"
+                    />
+                    Horizontal
+                  </label>
+                </div>
+              </div>
+              <label class="uk-form-label mr-1">Bars:</label>
+              <ul
+                class="uk-subnav uk-subnav-primary pr-4 mt-1"
+                style="display: block"
+              >
+                <li>
+                  <div
+                    class="h-8 mb-2"
+                    style="padding-left: 0; padding-right: 0; width: 90%"
+                  >
+                    <label class="uk-form-label mr-1">X:</label>
+                    <uk-select
+                      name="x"
+                      class="w-full"
+                      cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                      reactive
+                    >
+                      <select hidden id="x">
+                        <option value="precinct" selected>Precinct</option>
+                      </select>
+                    </uk-select>
+                  </div>
+                </li>
+                <li id="y-container">
+                  <div
+                    class="h-8 w-full"
+                    style="padding-left: 0; padding-right: 0; width: 90%"
+                  >
+                    <label class="uk-form-label mr-1">Y:</label>
+                    <uk-select
+                      name="y"
+                      class="w-full"
+                      cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full"
+                      reactive
+                    >
+                      <select hidden name="y-select" id="y">
+                        <option value="All Crimes" selected>All Crimes</option>
+                      </select>
+                    </uk-select>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="ml-4 w-full mt-4">
+              <label class="uk-form-label mr-1">Histogram:</label>
+              <ul
+                class="uk-subnav uk-subnav-primary pr-4 mt-1"
+                style="display: block"
+              >
+                <li>
+                  <div
+                    class="h-8 mb-2"
+                    style="padding-left: 0; padding-right: 0; width: 90%"
+                  >
+                    <label class="uk-form-label mr-1">X:</label>
+                    <uk-select
+                      name="x"
+                      class="w-full"
+                      cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                      reactive
+                    >
+                      <select hidden class="hist-x" id="histogram"></select>
+                    </uk-select>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="ml-4 w-full mt-4">
+              <div class="mb-2">
+                <div class="uk-form-label">Swap axis:</div>
+                <div class="uk-form-controls mt-1">
+                  <label class="mr-2">
+                    <input
+                      class="uk-radio mr-1"
+                      type="radio"
+                      name="swap"
+                      value="true"
+                    />
+                    yes
+                  </label>
+                  <label>
+                    <input
+                      class="uk-radio mr-1"
+                      type="radio"
+                      name="swap"
+                      value="false"
+                      checked
+                    />
+                    no
+                  </label>
+                </div>
+              </div>
+              <label class="uk-form-label mr-1">Scatter plot:</label>
+              <ul
+                class="uk-subnav uk-subnav-primary pr-4 mt-1"
+                style="display: block"
+              >
+                <li>
+                  <div
+                    class="h-8 mb-2"
+                    style="padding-left: 0; padding-right: 0; width: 90%"
+                  >
+                    <label class="uk-form-label mr-1">X:</label>
+                    <uk-select
+                      name="scatter-x"
+                      class="w-full scatter-x-select"
+                      cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                      reactive
+                    >
+                      <select hidden class="scatter-x" id="scatter-x"></select>
+                    </uk-select>
+                  </div>
+                </li>
+                <li>
+                  <div
+                    class="h-8 mb-2"
+                    style="padding-left: 0; padding-right: 0; width: 90%"
+                  >
+                    <label class="uk-form-label mr-1">Y:</label>
+                    <uk-select
+                      name="scatter-y"
+                      class="w-full scatter-y-select"
+                      cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                      reactive
+                    >
+                      <select hidden class="scatter-y" id="scatter-y"></select>
+                    </uk-select>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div
+            class="uk-card flex h-full items-center flex-col justify-center lg:col-span-6 p-4"
+            id="container"
+          >
+            <div class="mx-auto w-full mb-4">
+              <ul
+                class="uk-subnav uk-subnav-primary flex-wrap"
+                data-uk-switcher="connect: .switcher-container"
+              >
+                <li><a href="#">Map</a></li>
+                <li><a href="#">Visualization</a></li>
+              </ul>
+            </div>
+            <div
+              class="flex flex-1 items-center justify-center gap-x-2 text-destructive"
+            >
+              <span class="size-4">
+                <uk-icon icon="info"></uk-icon>
+              </span>
+              Graph not available
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- dynamic city colors, can do later -->
+    <!-- <script>
+      // Helper function to convert hex to HSL
+      const hexToHSL = (hex) => {
+        let r = parseInt(hex.slice(1, 3), 16) / 255;
+        let g = parseInt(hex.slice(3, 5), 16) / 255;
+        let b = parseInt(hex.slice(5, 7), 16) / 255;
+
+        let max = Math.max(r, g, b);
+        let min = Math.min(r, g, b);
+        let h,
+          s,
+          l = (max + min) / 2;
+
+        if (max === min) {
+          h = s = 0;
+        } else {
+          let d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case r:
+              h = (g - b) / d + (g < b ? 6 : 0);
+              break;
+            case g:
+              h = (b - r) / d + 2;
+              break;
+            case b:
+              h = (r - g) / d + 4;
+              break;
+          }
+          h /= 6;
+        }
+
+        return { h: h * 360, s: s * 100, l: l * 100 };
+      };
+
+      // Helper function to convert HSL to hex
+      const HSLToHex = (h, s, l) => {
+        s /= 100;
+        l /= 100;
+        const k = (n) => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = (n) =>
+          l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+        const toHex = (x) => {
+          const hex = Math.round(x * 255).toString(16);
+          return hex.length === 1 ? "0" + hex : hex;
+        };
+        return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+      };
+
+      const generateThemeColors = (baseHex) => {
+        const hsl = hexToHSL(baseHex);
+
+        // For grayscale themes (low saturation), generate more colorful variations
+        const isGrayscale = hsl.s < 10;
+
+        if (isGrayscale) {
+          return {
+            primary: baseHex,
+            secondary: `#${Math.floor(Math.random() * 16777215)
+              .toString(16)
+              .padStart(6, "0")}`,
+            tertiary: HSLToHex((hsl.h + 120) % 360, 60, 50),
+            quaternary: HSLToHex((hsl.h + 240) % 360, 60, 50),
+            quinary: HSLToHex((hsl.h + 180) % 360, 60, 70),
+          };
+        }
+
+        // For colorful themes, create contrasting colors
+        return {
+          primary: baseHex,
+          secondary: HSLToHex((hsl.h + 180) % 360, hsl.s, hsl.l), // Complementary
+          tertiary: HSLToHex((hsl.h + 120) % 360, hsl.s, hsl.l), // Triadic
+          quaternary: HSLToHex((hsl.h + 90) % 360, hsl.s - 10, hsl.l), // Split-complementary
+          quinary: HSLToHex((hsl.h + 270) % 360, hsl.s - 20, hsl.l + 10), // Tetradic
+        };
+      };
+
+      // Example usage for each theme
+      const themes = {
+        zinc: "#52525b",
+        slate: "#64748b",
+        stone: "#78716c",
+        gray: "#6b7280",
+        neutral: "#737373",
+        red: "#dc2626",
+        rose: "#e11d48",
+        orange: "#f97316",
+        green: "#16a34a",
+        blue: "#2563eb",
+        yellow: "#facc15",
+        violet: "#7c3aed",
+      };
+
+      // Generate and display colors for each theme
+      Object.entries(themes).forEach(([theme, hex]) => {
+        const colors = generateThemeColors(hex);
+        console.log(
+          `\n${theme.charAt(0).toUpperCase() + theme.slice(1)} Theme:`
+        );
+        Object.entries(colors).forEach(([key, value]) => {
+          console.log(`${key}: ${value}`);
+        });
+      });
+      let curr_theme = themes[__FRANKEN__.theme.split("-")[2]];
+      let accents = Object.values(generateThemeColors(curr_theme));
+      console.log(accents);
+    </script> -->
+
+    <script type="module">
+      import * as topoclient from "./d3/topojson-client.min.js";
+      const isNumeric = (val) => !isNaN(val) && !isNaN(parseFloat(val));
+
+      // Schema definition for column types
+      const schema = {
+        categorical: ["string", "category", "ordinal"],
+        numerical: ["number", "integer", "float"],
+      };
+      function sortObjectByValue(obj) {
+        const sortedEntries = Object.entries(obj).sort(([, a], [, b]) => a - b);
+        return Object.fromEntries(sortedEntries);
+      }
+      // Function to infer column types from data
+      function inferColumnTypes(data) {
+        if (!data.length) return {};
+
+        const columnTypes = {};
+        const headers = Object.keys(data[0]);
+
+        headers.forEach((column) => {
+          // Sample the first 100 non-null values (or all if less than 100)
+          const sampleValues = data
+            .filter((row) => row[column] != null)
+            .slice(0, 100)
+            .map((row) => row[column]);
+
+          // Check if all sampled values are numeric
+          const isNumericColumn = sampleValues.every(isNumeric);
+
+          columnTypes[column] = isNumericColumn ? "numerical" : "categorical";
+        });
+
+        return columnTypes;
+      }
+
+      // Enhanced D3 CSV loader with type inference
+      function loadTypedCSV(url) {
+        return d3.csv(url).then((data) => {
+          const columnTypes = inferColumnTypes(data);
+
+          // Convert values based on inferred types
+          const typedData = data.map((row) => {
+            const typedRow = {};
+            Object.entries(row).forEach(([key, value]) => {
+              typedRow[key] = columnTypes[key] === "numerical" ? +value : value;
+            });
+            return typedRow;
+          });
+
+          return {
+            data: typedData,
+            columnTypes: columnTypes,
+          };
+        });
+      }
+
+      // loading data
+      const { data, columnTypes } = await loadTypedCSV("./data/final_data.csv");
+      columnTypes["precinct"] = "categorical";
+
+      Object.filter = (obj, predicate) =>
+        Object.keys(obj)
+          .filter((key) => predicate(obj[key]))
+          .reduce((res, key) => ((res[key] = obj[key]), res), {});
+      // categorical
+      let x_axis_variables = [
+        "precinct",
+        "borough",
+        "All Crimes",
+        "All Victim_Races",
+        "All Victim_Sexes",
+        "All Suspect_Races",
+        "All Suspect_Sexes",
+        "All Police_Used",
+        "All Summoned_For",
+      ];
+      const numerical_x_variables = Object.keys(
+        Object.filter(columnTypes, (type) => type == "numerical")
+      );
+
+      const select = document.getElementById("x");
+
+      const capitalize = (str) =>
+        str
+          .replace(/_/g, " ") // Replace underscores with spaces
+          .toLowerCase()
+          .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize each word
+      // Populate new options
+      select.innerHTML = "";
+      x_axis_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        if (value.startsWith("All")) {
+          option.textContent = "Preset: " + capitalize(value);
+        } else option.textContent = capitalize(value); // Make display text more readable
+        if (value === "precinct") {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+      const scatter_variables = x_axis_variables
+        .slice(0, 2)
+        .concat(numerical_x_variables);
+
+      x_axis_variables.splice(0, 2);
+      x_axis_variables = x_axis_variables.concat(numerical_x_variables);
+      let x_dict = {};
+      // maps select options to aggregated columns
+      x_axis_variables.forEach((element) => {
+        let og = element;
+        if (element.startsWith("All")) {
+          if (element.endsWith("es"))
+            element = element.substring(0, element.length - 2);
+          if (element.endsWith("s"))
+            element = element.substring(0, element.length - 1);
+          const key_word = element.split("All ")[1];
+          x_dict[og] = Object.keys(data[0]).filter((k) =>
+            k.startsWith(key_word)
+          );
+        } else {
+          x_dict[element] = [element];
+        }
+      });
+      const select2 = document.getElementsByName("y-select");
+      // Populate new options
+      for (const i of select2) {
+        i.innerHTML = "";
+        x_axis_variables.forEach((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = capitalize(value); // Make display text more readable
+          if (value === "All Crimes") {
+            option.selected = true;
+          }
+          i.appendChild(option);
+        });
+      }
+      const select_hist_x = document.getElementsByClassName("hist-x")[0];
+      numerical_x_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = capitalize(value); // Make display text more readable
+        if (value === "All Crimes") {
+          option.selected = true;
+        }
+        select_hist_x.appendChild(option);
+      });
+
+      const select_scatter_x = document.getElementsByClassName("scatter-x")[0];
+      scatter_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = capitalize(value); // Make display text more readable
+        select_scatter_x.appendChild(option);
+      });
+      const select_scatter_y = document.getElementsByClassName("scatter-y")[0];
+
+      scatter_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = capitalize(value); // Make display text more readable
+        select_scatter_y.appendChild(option);
+      });
+      // numerical
+
+      // Declare the chart dimensions and margins.
+      const map_width = 740;
+      const map_height = 600;
+      const map_marginTop = 100;
+      const map_marginRight = 0;
+      const map_marginBottom = 0;
+      const map_marginLeft = 0;
+      const color = d3.scaleOrdinal(d3.schemeAccent);
+
+      const topoData = await d3.json("./data/precinct.json");
+      const geojson = topojson.feature(topoData, topoData.objects.PRECINCT);
+      const projection = d3
+        .geoMercator()
+        .fitSize([map_width, map_height], geojson);
+      const path = d3.geoPath().projection(projection);
+
+      const map_svg = d3
+        .create("svg")
+        .attr("preserveAspectRatio", "xMidYMid meet")
+        .attr("viewBox", "0 0 740 600")
+        .style("width", "100%")
+        .style("height", "100%");
+
+      const colorScale = d3.scaleOrdinal(d3.schemeAccent);
+      function precinctToIndex(precinct) {
+        const boroughMap = {
+          Manhattan: 0,
+          Bronx: 1,
+          Brooklyn: 2,
+          Queens: 3,
+          "Staten Island": 4,
+        };
+
+        // Check if input is a string (borough name)
+        if (typeof precinct === "string") {
+          return boroughMap[precinct] ?? -1; // Return index or -1 if not found
+        }
+
+        if (precinct >= 1 && precinct <= 39) return 0; // Manhattan
+        if (precinct >= 40 && precinct <= 59) return 1; // The Bronx
+        if (precinct >= 60 && precinct <= 99) return 2; // Brooklyn
+        if (precinct >= 100 && precinct <= 119) return 3; // Queens
+        if (precinct >= 120) return 4; // Staten Island
+
+        return;
+      }
+      const precinctColor = Object.values(d3.schemeCategory10);
+      const values = geojson.features.map(
+        (feature) => Math.random() * 100 // Replace with your actual values
+      );
+      const heightScale = d3
+        .scaleLinear()
+        .domain([0, d3.max(values)])
+        .range([0, 100]); // Maximum height in pixels
+
+      const mapLayer = map_svg.append("g").attr("class", "map-layer");
+
+      // Create bars layer
+      const barsLayer = map_svg.append("g").attr("class", "bars-layer");
+      const defs = map_svg.append("defs");
+
+      // Process each feature
+      geojson.features.forEach((feature, i) => {
+        // Create unique ID for this precinct
+        const precinctId = `precinct-${feature.properties.PRECINCT}`;
+
+        // Create a clipping path for this precinct
+        defs
+          .append("clipPath")
+          .attr("id", precinctId)
+          .append("path")
+          .attr("d", path(feature));
+
+        // Draw the base precinct shape
+        mapLayer
+          .append("path")
+          .datum(feature)
+          .attr("d", path)
+          .style(
+            "fill",
+            precinctColor[precinctToIndex(parseInt(precinctId.split("-")[1]))]
+          )
+          // .style("fill", "#fff")
+          .style("stroke", "#000")
+          .style("stroke-width", "0.5px");
+
+        // Calculate bounds for this precinct
+        const bounds = path.bounds(feature);
+        const [[x0, y0], [x1, y1]] = bounds;
+        const precinctHeight = y1 - y0;
+
+        // Create the bar using the precinct's shape
+        const value = values[i];
+        const scaledHeight = heightScale(value);
+        const yOffset = precinctHeight * (scaledHeight / 100);
+
+        // Create a group for the bar with the clip path
+        const barGroup = barsLayer
+          .append("g")
+          .attr("clip-path", `url(#${precinctId})`);
+
+        // Add the actual bar
+        barGroup
+          .append("path")
+          .datum(feature)
+          .attr("d", path)
+          .attr("transform", `translate(0, ${precinctHeight - yOffset})`)
+          .style("fill", "transparent")
+          .style("stroke", "none");
+
+        // Add value label at centroid
+        const centroid = path.centroid(feature);
+        map_svg
+          .append("text")
+          .attr("x", centroid[0])
+          .attr("y", centroid[1])
+          .attr("text-anchor", "middle")
+          .attr("font-size", "8px")
+          .attr("fill", "black")
+          .text(Math.round(value));
+      });
+      function createPctList() {
+        // Create main container
+        const cardBody = document.createElement("div");
+        cardBody.className =
+          "uk-card-body scroll-auto overflow-y-scroll pb-4 mb-0";
+        cardBody.style.height = "80%";
+        const container = document.createElement("div");
+        container.className = "space-y-8";
+        cardBody.appendChild(container);
+
+        // Create user items
+        data.forEach((pct) => {
+          // Create user container
+          const i = pct.precinct;
+          const userDiv = document.createElement("div");
+          userDiv.className = "flex items-center";
+
+          // Create avatar span
+          const avatarSpan = document.createElement("span");
+          avatarSpan.className =
+            "relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-accent";
+
+          // Create info container
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "ml-4 space-y-1";
+
+          // Create name paragraph
+          const namePara = document.createElement("p");
+          namePara.className = "text-sm font-medium leading-none";
+          namePara.textContent = pct.precinct + "th Precinct" + ", ";
+          const borough = document.createElement("span");
+          borough.textContent = pct.borough;
+          borough.style.color = precinctColor[precinctToIndex(pct.precinct)];
+          // Create email paragraph
+          const emailPara = document.createElement("p");
+          emailPara.className = "text-sm text-muted-foreground";
+          emailPara.textContent = pct.address;
+          const tags = JSON.parse(pct.description_tags);
+          tags.sort();
+
+          // Create amount div
+
+          // amountDiv.className +=
+          //   "text-ellipsis bg-muted w-fit p-2 rounded-full";
+
+          // Append all elements
+          infoDiv.appendChild(namePara);
+          namePara.appendChild(borough);
+          infoDiv.appendChild(emailPara);
+          userDiv.appendChild(avatarSpan);
+          userDiv.appendChild(infoDiv);
+          let length = 0;
+          let dotted = false;
+          tags.forEach((t) => {
+            let tag = document.createElement("button");
+            length += t.length;
+            if (length >= 60) {
+              if (dotted) {
+                tag.className = `precinct-${i}-tag hidden `;
+                // tag.hidden = true;
+                // UIkit.toggle(tag);
+              } else {
+                // tag.className = `precinct-${i}-tag `;
+                tag.setAttribute(
+                  "data-uk-toggle",
+                  `target: .precinct-${i}-tag; cls: hidden`
+                );
+                dotted = true;
+                const prev = t;
+                t = "...";
+                tag.addEventListener("click", function (e) {
+                  e.currentTarget.textContent = prev;
+                });
+              }
+            }
+            tag.className += "uk-tag uk-tag-secondary mx-1";
+            tag.textContent = t;
+
+            infoDiv.appendChild(tag);
+          });
+          if (infoDiv.lastChild.textContent == "...") {
+            infoDiv.removeChild(infoDiv.lastChild);
+          }
+          container.appendChild(userDiv);
+        });
+
+        return cardBody;
+      }
+
+      const test = document.querySelector("#test");
+      test.style.maxHeight = "80vh";
+      test.appendChild(createPctList());
+
+      const ul = document.createElement("ul");
+      ul.classList.add("uk-switcher", "w-full", "h-full", "switcher-container");
+
+      const items = ["", "Visualization"];
+
+      let currX = document.querySelector("#x").value;
+      let currY = document.querySelector("#y").value;
+      items.forEach((text) => {
+        const li = document.createElement("li");
+        li.style.height = "60vh";
+        if (text) {
+          li.id = "viz";
+        } else {
+          li.appendChild(map_svg.node());
+        }
+        ul.appendChild(li);
+      });
+      container.style.maxHeight = "80vh";
+      container.removeChild(container.children[1]);
+      container.appendChild(ul);
+      const viz = document.getElementById("viz");
+      viz.style.maxHeight = "80vh";
+      const rankMap = {
+        sgt: "sergeant",
+        po: "police officer",
+        det: "detective",
+      };
+      function update(direction, scatter, currX, currY) {
+        if (!currX && !currY) {
+          return;
+        }
+        const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+        const width = 800 - margin.left - margin.right;
+        const height = 650 - margin.top - margin.bottom;
+        console.log(
+          scatter,
+          currX,
+          currY,
+          columnTypes[currX],
+          columnTypes[currY]
+        );
+        let swap;
+        viz.innerHTML = "";
+        if (direction == "vertical") {
+          const svg = d3
+            .select("#viz")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr(
+              "transform",
+              "translate(" + margin.left + "," + margin.top + ")"
+            );
+          if (currY === "histogram") {
+            // Extract numeric values for the column specified by currX.
+            const values = data
+              .map((row) => +row[currX])
+              .filter((d) => !isNaN(d));
+
+            // Compute the extent (min and max) of the data.
+            let [min, max] = d3.extent(values);
+
+            // Handle the edge case where all values are equal.
+            if (min === max) {
+              min = min - 1;
+              max = max + 1;
+            }
+
+            // Define the number of bins you want.
+            const numBins = 20;
+            // Compute the bin width so that bins are equally spaced.
+            const binWidth = (max - min) / numBins;
+            // Create an array of thresholds using d3.range. This ensures equal spacing.
+            const thresholds = d3.range(min, max, binWidth);
+
+            // Create a linear x-scale mapping the data extent to the width of the SVG.
+            const x = d3.scaleLinear().domain([min, max]).range([0, width]);
+
+            // Generate the bins using d3.histogram with the computed thresholds.
+            const histogramGenerator = d3
+              .histogram()
+              .domain(x.domain())
+              .thresholds(thresholds);
+
+            const bins = histogramGenerator(values);
+
+            // Create a y-scale based on the maximum count among bins.
+            const y = d3
+              .scaleLinear()
+              .domain([0, d3.max(bins, (d) => d.length)])
+              .range([height, 0])
+              .nice();
+
+            // Append the x-axis at the bottom.
+            svg
+              .append("g")
+              .attr("transform", `translate(0, ${height})`)
+              .call(d3.axisBottom(x));
+
+            // Append the y-axis on the left.
+            svg.append("g").call(d3.axisLeft(y));
+
+            // Create and style the bars for the histogram.
+            svg
+              .selectAll("rect")
+              .data(bins)
+              .enter()
+              .append("rect")
+              .attr("x", (d) => x(d.x0) + 1)
+              .attr("y", (d) => y(d.length))
+              .attr("width", (d) => Math.max(0, x(d.x1) - x(d.x0) - 1))
+              .attr("height", (d) => height - y(d.length))
+              .attr("fill", "steelblue");
+
+            // Add a title to the histogram.
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", 0 - margin.top / 2)
+              .attr("text-anchor", "middle")
+              .style("font-size", "16px")
+              .style("text-decoration", "underline")
+              .style("color", "var(--primary-foreground)")
+              .text(`Histogram of ${capitalize(currX)}`);
+          } else if (
+            currX.startsWith("All") ||
+            (columnTypes[currX] == "categorical" &&
+              (currY.startsWith("All") || columnTypes[currY] == "numerical")) ||
+            (columnTypes[currX] == "numerical" &&
+              columnTypes[currY] == "categorical")
+          ) {
+            console.log("321");
+            swap = false;
+            if (
+              columnTypes[currX] == "numerical" &&
+              columnTypes[currY] == "categorical"
+            ) {
+              swap = true;
+              let temp = currX;
+              currX = currY;
+              currY = temp;
+            }
+            const cols = x_dict[currY] || currY;
+            let new_data = [];
+            let maxHeight = 0;
+
+            if (currX === "borough") {
+              let boroughMap = new Map();
+
+              for (const row of data) {
+                let tot = 0;
+                for (const i of cols) {
+                  tot += row[i];
+                }
+
+                let precinctName = row[currX];
+
+                if (boroughMap.has(precinctName)) {
+                  boroughMap.set(
+                    precinctName,
+                    boroughMap.get(precinctName) + tot
+                  );
+                } else {
+                  boroughMap.set(precinctName, tot);
+                }
+
+                maxHeight = Math.max(maxHeight, boroughMap.get(precinctName));
+              }
+
+              new_data = Array.from(boroughMap, ([precinct, value]) => ({
+                precinct,
+                value,
+              }));
+            } else {
+              if (currX.startsWith("All")) {
+                const other_cols = x_dict[currX];
+                // Create a map to store aggregated values for each column
+                let columnTotals = new Map();
+
+                // Initialize the map with 0 for each column
+                for (const col of other_cols) {
+                  columnTotals.set(col, 0);
+                }
+
+                // Calculate totals for each column across all rows
+                for (const row of data) {
+                  for (const col of other_cols) {
+                    columnTotals.set(col, columnTotals.get(col) + row[col]);
+                  }
+                }
+
+                // Convert the map to the required format for visualization
+                new_data = Array.from(columnTotals, ([col, value]) => ({
+                  precinct: col.split("_")[col.split("_").length - 1], // Using column name as precinct
+                  value: value,
+                }));
+
+                // Update maxHeight
+                maxHeight = Math.max(...columnTotals.values());
+              } else {
+                for (const row of data) {
+                  let tot = 0;
+                  for (const i of cols) {
+                    tot += row[i];
+                  }
+                  maxHeight = Math.max(maxHeight, tot);
+                  new_data.push({ precinct: row[currX], value: tot });
+                }
+              }
+            }
+
+            if (swap) {
+              // Swap the data so that:
+              // - d.value becomes the category (for the y axis)
+              // - d.precinct becomes the numerical value (for the x axis)
+              new_data = new_data.map((d) => {
+                return { precinct: d.value, value: d.precinct };
+              });
+
+              // Sort based on the numerical value
+              new_data = new_data.sort((a, b) => b.value - a.value);
+
+              // Here, x is a linear scale (numerical) and y is a band scale (categorical)
+              // if (currY==="precinct"){
+              //   maxHeight
+              // }
+              const x = d3
+                .scaleLinear()
+                .domain([0, maxHeight]) // maxHeight should reflect the maximum numerical value
+                .range([0, width])
+                .nice();
+
+              const y = d3
+                .scaleBand()
+                .domain(new_data.map((d) => d.value))
+                .range([height, 0])
+                .padding(0.2);
+
+              // Append the x-axis (numerical) at the bottom.
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x));
+
+              // Append the y-axis (categorical) on the left.
+              svg.append("g").call(d3.axisLeft(y));
+
+              // If displaying scatter points:
+              if (scatter) {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("circle")
+                  // Use x(d.value) because d.value is now numerical
+                  .attr("cx", (d) => x(d.precinct))
+                  // For the y coordinate, center the point within the band.
+                  .attr("cy", (d) => y(d.value) + y.bandwidth() / 2)
+                  .attr("r", currX === "borough" ? 20 : 4)
+                  .attr("fill", (d) => precinctColor[precinctToIndex(d.value)])
+                  .attr(
+                    "transform",
+                    currX === "borough"
+                      ? "translate(" + 0 + ",0)"
+                      : "translate(" + 2 + ",0)"
+                  );
+              }
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text(capitalize(currY));
+
+              // Add label for the y-axis.
+              svg
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", -margin.left + 20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text(
+                  capitalize(
+                    currX === "histogram" ? "Number of Precincts" : currX
+                  )
+                );
+            } else {
+              // Original case: numerical values on the y-axis, categorical data on the x-axis.
+              new_data = new_data.sort((a, b) => b.value - a.value);
+
+              const x = d3
+                .scaleBand()
+                .range([0, width])
+                .domain(new_data.map((d) => d.precinct))
+                .padding(0.2);
+
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr(
+                  "transform",
+                  `translate(-10,10)${
+                    new_data.length > 20 ? "rotate(-90)" : "rotate(-45)"
+                  }`
+                )
+                .style("text-anchor", "end");
+
+              const y = d3
+                .scaleLinear()
+                .domain([0, maxHeight])
+                .range([height, 0])
+                .nice();
+
+              svg.append("g").call(d3.axisLeft(y));
+
+              if (scatter) {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("circle")
+                  // Center the circle within the band:
+                  .attr("cx", (d) => x(d.precinct) + x.bandwidth() / 2)
+                  .attr("cy", (d) => y(d.value))
+                  .attr("r", currX === "borough" ? 20 : 4)
+                  .attr(
+                    "fill",
+                    (d) => precinctColor[precinctToIndex(d.precinct)]
+                  )
+                  .attr(
+                    "transform",
+                    currX === "borough"
+                      ? "translate(" + 55 + ",0)"
+                      : "translate(" + 10 + ",0)"
+                  );
+              } else
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("rect")
+                  .attr("x", (d) => x(d.precinct))
+                  .attr("y", (d) => y(d.value))
+                  .attr("width", x.bandwidth())
+                  .attr("height", (d) => height - y(d.value))
+                  .attr(
+                    "fill",
+                    (d) => precinctColor[precinctToIndex(d.precinct)]
+                  );
+            }
+
+            if (currX === "precinct" || currX === "borough") {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(
+                  `${capitalize(
+                    "Number of " + (currY.length > 3 ? currY : rankMap[currY])
+                  )} grouped by ${capitalize(currX)}`.replace(
+                    "Summoned For",
+                    "Summons"
+                  )
+                );
+            } else if (currX.startsWith("All")) {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(`NYC: ${capitalize(currX)}`);
+            } else if (scatter) {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(
+                  `Scattering: ${capitalize(currX)} Vs. ${capitalize(currY)}`
+                );
+            }
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX));
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+          } else if (
+            columnTypes[currX] == "categorical" &&
+            columnTypes[currY] == "categorical"
+          ) {
+            // Clear previous visualization
+            viz.innerHTML = "";
+
+            // Append SVG to #viz
+            const svg = d3
+              .select("#viz")
+              .append("svg")
+              .attr("width", width + margin.left + margin.right)
+              .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+              .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Get unique categories for x and y axes
+            const xCategories = Array.from(new Set(data.map((d) => d[currX])));
+            const yCategories = Array.from(new Set(data.map((d) => d[currY])));
+
+            // Create scales for categorical axes using scaleBand
+            const xScale = d3
+              .scaleBand()
+              .domain(xCategories)
+              .range([0, width])
+              .padding(0.1);
+
+            const yScale = d3
+              .scaleBand()
+              .domain(yCategories)
+              .range([height, 0])
+              .padding(0.1);
+
+            // Append axes
+            svg
+              .append("g")
+              .attr("transform", `translate(0, ${height})`)
+              .call(d3.axisBottom(xScale));
+
+            svg.append("g").call(d3.axisLeft(yScale));
+
+            // Define jitter ranges based on the bandwidth of the scales
+            const jitterX = xScale.bandwidth();
+            const jitterY = yScale.bandwidth();
+
+            // Draw scatter points with jitter
+            svg
+              .selectAll("circle")
+              .data(data)
+              .enter()
+              .append("circle")
+              .attr("cx", (d) => {
+                // Center of the band plus a random offset within ±40% of the bandwidth
+                return (
+                  xScale(d[currX]) +
+                  xScale.bandwidth() / 2 +
+                  (Math.random() - 0.5) * jitterX * 0.8
+                );
+              })
+              .attr("cy", (d) => {
+                return (
+                  yScale(d[currY]) +
+                  yScale.bandwidth() / 2 +
+                  (Math.random() - 0.5) * jitterY * 0.8
+                );
+              })
+              .attr("r", 4)
+              .attr("fill", (d) => precinctColor[precinctToIndex(d[currX])]); // Adjust coloring as needed
+
+            // Add a title to the scatter plot
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", 0 - margin.top / 2)
+              .attr("text-anchor", "middle")
+              .style("font-size", "16px")
+              .style("text-decoration", "underline")
+              .style("color", "var(--primary-foreground)")
+              .text(
+                `Scatter Plot of ${capitalize(currY)} vs ${capitalize(currX)}`
+              );
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX));
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+          } else {
+            console.log("here");
+            // Clear previous visualization
+            viz.innerHTML = "";
+
+            // Append the SVG container to #viz
+            const svg = d3
+              .select("#viz")
+              .append("svg")
+              .attr("width", width + margin.left + margin.right)
+              .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+              .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Extract numerical values from the data for the given columns.
+            const xValues = data.map((d) => +d[currX]);
+            const yValues = data.map((d) => +d[currY]);
+
+            // Create x and y scales using the extent of the data.
+            const xScale = d3
+              .scaleLinear()
+              .domain(d3.extent(xValues))
+              .nice()
+              .range([0, width]);
+
+            const yScale = d3
+              .scaleLinear()
+              .domain(d3.extent(yValues))
+              .nice()
+              .range([height, 0]);
+
+            // Append x-axis at the bottom.
+            svg
+              .append("g")
+              .attr("transform", `translate(0, ${height})`)
+              .call(d3.axisBottom(xScale));
+
+            // Append y-axis on the left.
+            svg.append("g").call(d3.axisLeft(yScale));
+
+            // Plot circles for each data point.
+            svg
+              .selectAll("circle")
+              .data(data)
+              .enter()
+              .append("circle")
+              .attr("cx", (d) => xScale(+d[currX]))
+              .attr("cy", (d) => yScale(+d[currY]))
+              .attr("r", 4)
+              .attr("fill", (d) => "steelblue");
+
+            // Add a title to the scatter plot.
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", 0 - margin.top / 2)
+              .attr("text-anchor", "middle")
+              .style("font-size", "16px")
+              .style("text-decoration", "underline")
+              .text(
+                `Scatter Plot of ${capitalize(currY)} vs ${capitalize(currX)}`
+              );
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX));
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+          }
+          if (!swap) {
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX));
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+          }
+          // .text(capitalize(currY));
+        } else {
+          if (direction === "horizontal") {
+            const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+            const width = 800 - margin.left - margin.right;
+            const height = 650 - margin.top - margin.bottom;
+            viz.innerHTML = "";
+
+            const svg = d3
+              .select("#viz")
+              .append("svg")
+              .attr("width", width + margin.left + margin.right)
+              .attr("height", height + margin.top + margin.bottom)
+              .append("g")
+              .attr(
+                "transform",
+                "translate(" + margin.left + "," + margin.top + ")"
+              );
+
+            // If the horizontal dimension is a histogram, then the numeric values are taken from currY.
+            if (currY === "histogram") {
+              // Extract numeric values from currY
+              const values = data.map((row) => +row[currX]);
+
+              // Compute the extent of the data.
+              let [min, max] = d3.extent(values);
+              if (min === max) {
+                min = min - 1;
+                max = max + 1;
+              }
+
+              // Define the number of bins and compute equally spaced thresholds.
+              const numBins = 20;
+              const binWidth = (max - min) / numBins;
+              const thresholds = d3.range(min, max, binWidth);
+
+              // Generate histogram bins using the numeric domain.
+              const histogramGenerator = d3
+                .histogram()
+                .domain([min, max])
+                .thresholds(thresholds);
+              const bins = histogramGenerator(values);
+              // Create an x-scale for frequency counts.
+              const x = d3
+                .scaleLinear()
+                .domain([0, d3.max(bins, (d) => d.length)])
+                .range([0, width])
+                .nice();
+
+              // Create a y-scale mapping the numeric domain to vertical positions.
+              const y = d3
+                .scaleLinear()
+                .domain([min, max])
+                .range([height, 0])
+                .nice();
+
+              // Add the x-axis (frequency) at the bottom.
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x));
+
+              // Add the y-axis (numeric values) on the left.
+              svg.append("g").call(d3.axisLeft(y));
+
+              // Draw horizontal bars for each bin.
+              svg
+                .selectAll("rect")
+                .data(bins)
+                .enter()
+                .append("rect")
+                // Bars start at x=0, and their width corresponds to the bin count.
+                .attr("x", 0)
+                // Use d.x1 for the top of the bar, so that the bar spans from d.x1 (top) to d.x0 (bottom).
+                .attr("y", (d) => y(d.x1))
+                .attr("height", (d) => Math.max(0, y(d.x0) - y(d.x1) - 1))
+                .attr("width", (d) => x(d.length))
+                .attr("fill", "steelblue");
+
+              // Add a title to the histogram.
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(`Histogram of ${capitalize(currX)}`);
+            } else {
+              // Otherwise, implement the standard horizontal bar chart.
+              let new_data = [];
+              let maxValue = 0; // Maximum numeric value for scaling.
+
+              if (currX === "borough") {
+                let boroughMap = new Map();
+                const cols = x_dict[currY] || currY;
+                for (const row of data) {
+                  let tot = 0;
+                  for (const i of cols) {
+                    tot += row[i];
+                  }
+                  let boroughName = row[currX];
+                  boroughMap.set(
+                    boroughName,
+                    (boroughMap.get(boroughName) || 0) + tot
+                  );
+                  maxValue = Math.max(maxValue, boroughMap.get(boroughName));
+                }
+                new_data = Array.from(boroughMap, ([precinct, value]) => ({
+                  precinct,
+                  value,
+                }));
+              } else {
+                if (currX.startsWith("All")) {
+                  const other_cols = x_dict[currX];
+                  let columnTotals = new Map();
+                  for (const col of other_cols) {
+                    columnTotals.set(col, 0);
+                  }
+                  for (const row of data) {
+                    for (const col of other_cols) {
+                      columnTotals.set(col, columnTotals.get(col) + row[col]);
+                    }
+                  }
+                  new_data = Array.from(columnTotals, ([col, value]) => ({
+                    precinct: col.split("_").pop(),
+                    value: value,
+                  }));
+                  maxValue = Math.max(...columnTotals.values());
+                } else {
+                  const cols = x_dict[currY] || currY;
+                  for (const row of data) {
+                    let tot = 0;
+                    for (const i of cols) {
+                      tot += row[i];
+                    }
+                    new_data.push({ precinct: row[currX], value: tot });
+                    maxValue = Math.max(maxValue, tot);
+                  }
+                }
+              }
+
+              // Sort data in descending order.
+              new_data = new_data.sort((a, b) => b.value - a.value);
+
+              // Create a y-scale for categorical labels.
+              const y = d3
+                .scaleBand()
+                .domain(new_data.map((d) => d.precinct))
+                .range([0, height])
+                .padding(0.2);
+
+              // Create an x-scale for numeric values.
+              const x = d3
+                .scaleLinear()
+                .domain([0, maxValue])
+                .range([0, width]);
+
+              // Append the x-axis at the bottom.
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x));
+
+              // Append the y-axis on the left.
+              svg.append("g").call(d3.axisLeft(y));
+
+              // Draw horizontal bars.
+              svg
+                .selectAll("rect")
+                .data(new_data)
+                .enter()
+                .append("rect")
+                .attr("y", (d) => y(d.precinct))
+                .attr("x", 0)
+                .attr("height", y.bandwidth())
+                .attr("width", (d) => x(d.value))
+                .attr(
+                  "fill",
+                  (d) => precinctColor[precinctToIndex(d.precinct)]
+                );
+
+              // Add a title for the chart.
+              if (currX === "precinct" || currX === "borough") {
+                svg
+                  .append("text")
+                  .attr("x", width / 2)
+                  .attr("y", 0 - margin.top / 2)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "16px")
+                  .style("text-decoration", "underline")
+                  .style("color", "var(--primary-foreground)")
+                  .text(
+                    `${capitalize(
+                      "Number of " + (currY.length > 3 ? currY : rankMap[currY])
+                    )} grouped by ${capitalize(currX)}`.replace(
+                      "Summoned For",
+                      "Summons"
+                    )
+                  );
+              } else if (currX.startsWith("All")) {
+                svg
+                  .append("text")
+                  .attr("x", width / 2)
+                  .attr("y", 0 - margin.top / 2)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "16px")
+                  .style("text-decoration", "underline")
+                  .style("color", "var(--primary-foreground)")
+                  .text(`NYC: ${capitalize(currX)}`);
+              }
+            }
+            // if (direction === "vertical") {
+            //     svg
+            //       .append("text")
+            //       .attr("x", width / 2)
+            //       .attr("y", height + margin.bottom - 10)
+            //       .attr("text-anchor", "middle")
+            //       .style("font-size", "12px")
+            //       .text(capitalize(currX));
+
+            //     // Add label for the y-axis.
+            //     svg
+            //       .append("text")
+            //       .attr("transform", "rotate(-90)")
+            //       .attr("x", -height / 2)
+            //       .attr("y", -margin.left + 20)
+            //       .attr("text-anchor", "middle")
+            //       .style("font-size", "12px")
+            //       .text(
+            //         capitalize(
+            //           currY === "histogram" ? "Number of Precincts" : currY
+            //         )
+            //       );
+            //   } else {
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currX === "histogram" ? "Number of Precincts" : currX
+                )
+              );
+            // }
+          }
+        }
+      }
+      let lastX = "";
+      let scatterX = null;
+      let scatterY = null;
+      function onChange(e) {
+        const radio = document.querySelector(
+          'input[name="orientation"]:checked'
+        );
+        const swapp = document.querySelector('input[name="swap"]:checked');
+
+        const orientation = radio.value;
+        const swap = swapp.value === "true";
+        if (e) {
+          const selectElement = e.target.children[0]; // Get the closest select element
+
+          let selectId;
+          console.log(scatterX, scatterY);
+          if (selectElement) {
+            selectId = selectElement.id; // Get the select ID
+            const selectedValue = e.detail.value; // Assuming the event provides the selected value
+
+            if (selectId === "x") {
+              currX = selectedValue;
+              if (selectedValue.startsWith("All")) {
+                if (
+                  !document
+                    .getElementById("y-container")
+                    .classList.contains("hidden")
+                ) {
+                  document
+                    .getElementById("y-container")
+                    .classList.add("hidden");
+                }
+              } else {
+                if (
+                  document
+                    .getElementById("y-container")
+                    .classList.contains("hidden")
+                ) {
+                  document
+                    .getElementById("y-container")
+                    .classList.remove("hidden");
+                }
+              }
+              // currY = document.getElementById("y").value;
+            } else if (selectId === "y") {
+              if (currY === "histogram") currX = lastX;
+              currY = selectedValue;
+            } else if (selectId === "histogram") {
+              lastX = currX;
+              currX = selectedValue;
+              currY = "histogram";
+            } else if (selectId === "scatter-x") {
+              scatterX = selectedValue;
+              if (!scatterX || !scatterY) {
+                return;
+              }
+              update(orientation, true, scatterX, scatterY, swap);
+              return;
+            } else if (selectId === "scatter-y") {
+              scatterY = selectedValue;
+              if (!scatterX || !scatterY) {
+                return;
+              }
+              update(orientation, true, scatterX, scatterY, swap);
+              return;
+            }
+          }
+        } else {
+          if (swap) {
+            update(orientation, true, scatterY, scatterX);
+          } else update(orientation, true, scatterX, scatterY);
+          return;
+        }
+        update(orientation, false, currX, currY);
+      }
+      // Listen for changes
+      document.addEventListener("uk-select:input", onChange);
+      document.addEventListener("change", function (e) {
+        if (e.target.matches('input[name="orientation"]')) {
+          onChange(e);
+        } else {
+          if (e.target.matches('input[name="swap"]')) {
+            onChange(null);
+          }
+        }
+      });
+      update("vertical", false, currX, currY);
+    </script>
+  </body>
+</html>
