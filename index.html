@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     <link rel="stylesheet" href="styles/core.min.css" />
     <link rel="stylesheet" href="styles/utilities.min.css" />
+    <link rel="stylesheet" href="styles/visualization.css" />
     <style>
       :root {
         font-family: Inter, sans-serif;
@@ -148,88 +149,6 @@
       </div>
 
       <div class="space-y-4">
-        <!-- <ul class="uk-tab-alt max-w-96">
-          <li class="uk-active">
-            <a href="#demo" uk-toggle>Overview</a>
-          </li>
-          <li>
-            <a href="#demo" uk-toggle>Analytics</a>
-          </li>
-          <li>
-            <a href="#demo" uk-toggle>Reports</a>
-          </li>
-          <li>
-            <a href="#demo" uk-toggle>Notifications</a>
-          </li>
-          <li></li>
-        </ul> -->
-
-        <!-- <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div class="uk-card">
-            <div
-              class="uk-card-header flex flex-row items-center justify-between"
-            >
-              <h3 class="text-sm font-medium tracking-tight">Total Revenue</h3>
-              <span class="size-4 text-muted-foreground">
-                <uk-icon icon="dollar-sign"></uk-icon>
-              </span>
-            </div>
-            <div class="uk-card-body">
-              <div class="text-2xl font-bold">$45,231.89</div>
-              <p class="text-xs text-muted-foreground">
-                +20.1% from last month
-              </p>
-            </div>
-          </div>
-
-          <div class="uk-card">
-            <div
-              class="uk-card-header flex flex-row items-center justify-between"
-            >
-              <h3 class="text-sm font-medium tracking-tight">Subscriptions</h3>
-              <span class="size-4 text-muted-foreground">
-                <uk-icon icon="users"></uk-icon>
-              </span>
-            </div>
-            <div class="uk-card-body">
-              <div class="text-2xl font-bold">+2350</div>
-              <p class="text-xs text-muted-foreground">
-                +180.1% from last month
-              </p>
-            </div>
-          </div>
-
-          <div class="uk-card">
-            <div
-              class="uk-card-header flex flex-row items-center justify-between"
-            >
-              <h3 class="text-sm font-medium tracking-tight">Sales</h3>
-              <span class="size-4 text-muted-foreground">
-                <uk-icon icon="credit-card"></uk-icon>
-              </span>
-            </div>
-            <div class="uk-card-body">
-              <div class="text-2xl font-bold">+12,234</div>
-              <p class="text-xs text-muted-foreground">+19% from last month</p>
-            </div>
-          </div>
-
-          <div class="uk-card">
-            <div
-              class="uk-card-header flex flex-row items-center justify-between"
-            >
-              <h3 class="text-sm font-medium tracking-tight">Active Now</h3>
-              <span class="size-4 text-muted-foreground">
-                <uk-icon icon="chart-line"></uk-icon>
-              </span>
-            </div>
-            <div class="uk-card-body">
-              <div class="text-2xl font-bold">+573</div>
-              <p class="text-xs text-muted-foreground">+201 since last hour</p>
-            </div>
-          </div>
-        </div> -->
-
         <div class="grid lg:grid-cols-8 my_container">
           <div class="uk-card overflow-y-clip lg:col-span-2" id="test">
             <div class="uk-card-header backdrop-filter backdrop-blur-sm z-50">
@@ -306,7 +225,11 @@
                 </li>
               </ul>
             </div>
+            <!-- <hr class="uk-hr w-full mt-2" /> -->
+
             <div class="ml-4 w-full mt-4">
+              <!-- <hr class="uk-hr w-full" /> -->
+
               <label class="uk-form-label mr-1">Histogram:</label>
               <ul
                 class="uk-subnav uk-subnav-primary pr-4 mt-1"
@@ -330,6 +253,8 @@
                 </li>
               </ul>
             </div>
+            <hr class="uk-hr w-full" />
+
             <div class="ml-4 w-full mt-4">
               <div class="mb-2">
                 <div class="uk-form-label">Swap axis:</div>
@@ -394,6 +319,7 @@
                 </li>
               </ul>
             </div>
+            <hr class="uk-hr w-full" />
           </div>
 
           <div
@@ -530,7 +456,7 @@
       let accents = Object.values(generateThemeColors(curr_theme));
       console.log(accents);
     </script> -->
-
+    <!-- <script type="module" src="js/visualization.js"></script> -->
     <script type="module">
       import * as topoclient from "./d3/topojson-client.min.js";
       const isNumeric = (val) => !isNaN(val) && !isNaN(parseFloat(val));
@@ -858,12 +784,6 @@
           const tags = JSON.parse(pct.description_tags);
           tags.sort();
 
-          // Create amount div
-
-          // amountDiv.className +=
-          //   "text-ellipsis bg-muted w-fit p-2 rounded-full";
-
-          // Append all elements
           infoDiv.appendChild(namePara);
           namePara.appendChild(borough);
           infoDiv.appendChild(emailPara);
@@ -954,7 +874,7 @@
         );
         let swap;
         viz.innerHTML = "";
-        if (direction == "vertical") {
+        if (direction === "vertical") {
           const svg = d3
             .select("#viz")
             .append("svg")
@@ -988,7 +908,7 @@
             const thresholds = d3.range(min, max, binWidth);
 
             // Create a linear x-scale mapping the data extent to the width of the SVG.
-            const x = d3.scaleLinear().domain([min, max]).range([0, width]);
+            let x = d3.scaleLinear().domain([min, max]).range([0, width]);
 
             // Generate the bins using d3.histogram with the computed thresholds.
             const histogramGenerator = d3
@@ -999,7 +919,7 @@
             const bins = histogramGenerator(values);
 
             // Create a y-scale based on the maximum count among bins.
-            const y = d3
+            let y = d3
               .scaleLinear()
               .domain([0, d3.max(bins, (d) => d.length)])
               .range([height, 0])
@@ -1043,7 +963,6 @@
             (columnTypes[currX] == "numerical" &&
               columnTypes[currY] == "categorical")
           ) {
-            console.log("321");
             swap = false;
             if (
               columnTypes[currX] == "numerical" &&
@@ -1138,13 +1057,13 @@
               // if (currY==="precinct"){
               //   maxHeight
               // }
-              const x = d3
+              let x = d3
                 .scaleLinear()
                 .domain([0, maxHeight]) // maxHeight should reflect the maximum numerical value
                 .range([0, width])
                 .nice();
 
-              const y = d3
+              let y = d3
                 .scaleBand()
                 .domain(new_data.map((d) => d.value))
                 .range([height, 0])
@@ -1178,58 +1097,81 @@
                       ? "translate(" + 0 + ",0)"
                       : "translate(" + 2 + ",0)"
                   );
-              }
-              svg
-                .append("text")
-                .attr("x", width / 2)
-                .attr("y", height + margin.bottom - 10)
-                .attr("text-anchor", "middle")
-                .style("font-size", "12px")
-                .text(capitalize(currY));
+              } else {
+                svg
+                  .append("text")
+                  .attr("x", width / 2)
+                  .attr("y", height + margin.bottom - 10)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "12px")
+                  .text(capitalize(currY));
 
-              // Add label for the y-axis.
-              svg
-                .append("text")
-                .attr("transform", "rotate(-90)")
-                .attr("x", -height / 2)
-                .attr("y", -margin.left + 20)
-                .attr("text-anchor", "middle")
-                .style("font-size", "12px")
-                .text(
-                  capitalize(
-                    currX === "histogram" ? "Number of Precincts" : currX
-                  )
-                );
+                // Add label for the y-axis.
+                svg
+                  .append("text")
+                  .attr("transform", "rotate(-90)")
+                  .attr("x", -height / 2)
+                  .attr("y", -margin.left + 20)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "12px")
+                  .text(
+                    capitalize(
+                      currX === "histogram" ? "Number of Precincts" : currX
+                    )
+                  );
+              }
             } else {
               // Original case: numerical values on the y-axis, categorical data on the x-axis.
               new_data = new_data.sort((a, b) => b.value - a.value);
 
-              const x = d3
+              let x = d3
                 .scaleBand()
                 .range([0, width])
                 .domain(new_data.map((d) => d.precinct))
                 .padding(0.2);
-
-              svg
-                .append("g")
-                .attr("transform", `translate(0, ${height})`)
-                .call(d3.axisBottom(x))
-                .selectAll("text")
-                .attr(
-                  "transform",
-                  `translate(-10,10)${
-                    new_data.length > 20 ? "rotate(-90)" : "rotate(-45)"
-                  }`
-                )
-                .style("text-anchor", "end");
-
-              const y = d3
+              if (direction === "horizontal") {
+                x = d3
+                  .scaleBand()
+                  .range([0, height])
+                  .domain(new_data.map((d) => d.precinct))
+                  .padding(0.2);
+              }
+              if (direction === "vertical") {
+                svg
+                  .append("g")
+                  .attr("transform", `translate(0, ${height})`)
+                  .call(d3.axisBottom(x))
+                  .selectAll("text")
+                  .attr(
+                    "transform",
+                    `translate(-10,10)${
+                      new_data.length > 20 ? "rotate(-90)" : "rotate(-45)"
+                    }`
+                  )
+                  .style("text-anchor", "end");
+              } else {
+                svg.append("g").call(d3.axisLeft(x));
+              }
+              let y = d3
                 .scaleLinear()
                 .domain([0, maxHeight])
                 .range([height, 0])
                 .nice();
-
-              svg.append("g").call(d3.axisLeft(y));
+              if (direction === "horizontal") {
+                y = d3
+                  .scaleLinear()
+                  .domain([0, maxHeight])
+                  .range([0, width])
+                  .nice();
+              }
+              if (direction === "vertical") {
+                svg.append("g").call(d3.axisLeft(y));
+              } else {
+                svg
+                  .append("g")
+                  .attr("transform", `translate(0, ${height})`)
+                  .call(d3.axisBottom(y));
+              }
 
               if (scatter) {
                 svg
@@ -1251,7 +1193,7 @@
                       ? "translate(" + 55 + ",0)"
                       : "translate(" + 10 + ",0)"
                   );
-              } else
+              } else if (direction === "vertical") {
                 svg
                   .selectAll("mybar")
                   .data(new_data)
@@ -1265,6 +1207,21 @@
                     "fill",
                     (d) => precinctColor[precinctToIndex(d.precinct)]
                   );
+              } else {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("rect")
+                  .attr("x", (d) => 1)
+                  .attr("y", (d) => x(d.precinct))
+                  .attr("width", (d) => y(d.value))
+                  .attr("height", x.bandwidth())
+                  .attr(
+                    "fill",
+                    (d) => precinctColor[precinctToIndex(d.precinct)]
+                  );
+              }
             }
 
             if (currX === "precinct" || currX === "borough") {
@@ -1307,13 +1264,18 @@
                   `Scattering: ${capitalize(currX)} Vs. ${capitalize(currY)}`
                 );
             }
+
             svg
               .append("text")
               .attr("x", width / 2)
               .attr("y", height + margin.bottom - 10)
               .attr("text-anchor", "middle")
               .style("font-size", "12px")
-              .text(capitalize(currX));
+              .text(capitalize(currX))
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
 
             // Add label for the y-axis.
             svg
@@ -1327,6 +1289,10 @@
                 capitalize(
                   currY === "histogram" ? "Number of Precincts" : currY
                 )
+              )
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
               );
           } else if (
             columnTypes[currX] == "categorical" &&
@@ -1415,12 +1381,16 @@
               .attr("y", height + margin.bottom - 10)
               .attr("text-anchor", "middle")
               .style("font-size", "12px")
-              .text(capitalize(currX));
+              .text(capitalize(currX))
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
 
             // Add label for the y-axis.
             svg
               .append("text")
-              .attr("transform", "rotate(-90)")
+              // .attr("transform", "rotate(-90)")
               .attr("x", -height / 2)
               .attr("y", -margin.left + 20)
               .attr("text-anchor", "middle")
@@ -1521,7 +1491,11 @@
               .attr("y", height + margin.bottom - 10)
               .attr("text-anchor", "middle")
               .style("font-size", "12px")
-              .text(capitalize(currX));
+              .text(capitalize(currX))
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
 
             // Add label for the y-axis.
             svg
@@ -1535,9 +1509,12 @@
                 capitalize(
                   currY === "histogram" ? "Number of Precincts" : currY
                 )
+              )
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
               );
           }
-          // .text(capitalize(currY));
         } else {
           if (direction === "horizontal") {
             const margin = { top: 50, right: 20, bottom: 100, left: 100 };
@@ -1580,14 +1557,14 @@
                 .thresholds(thresholds);
               const bins = histogramGenerator(values);
               // Create an x-scale for frequency counts.
-              const x = d3
+              let x = d3
                 .scaleLinear()
                 .domain([0, d3.max(bins, (d) => d.length)])
                 .range([0, width])
                 .nice();
 
               // Create a y-scale mapping the numeric domain to vertical positions.
-              const y = d3
+              let y = d3
                 .scaleLinear()
                 .domain([min, max])
                 .range([height, 0])
@@ -1684,17 +1661,14 @@
               new_data = new_data.sort((a, b) => b.value - a.value);
 
               // Create a y-scale for categorical labels.
-              const y = d3
+              let y = d3
                 .scaleBand()
                 .domain(new_data.map((d) => d.precinct))
                 .range([0, height])
                 .padding(0.2);
 
               // Create an x-scale for numeric values.
-              const x = d3
-                .scaleLinear()
-                .domain([0, maxValue])
-                .range([0, width]);
+              let x = d3.scaleLinear().domain([0, maxValue]).range([0, width]);
 
               // Append the x-axis at the bottom.
               svg
@@ -1858,14 +1832,14 @@
               if (!scatterX || !scatterY) {
                 return;
               }
-              update(orientation, true, scatterX, scatterY, swap);
+              update("vertical", true, scatterX, scatterY, swap);
               return;
             } else if (selectId === "scatter-y") {
               scatterY = selectedValue;
               if (!scatterX || !scatterY) {
                 return;
               }
-              update(orientation, true, scatterX, scatterY, swap);
+              update("vertical", true, scatterX, scatterY, swap);
               return;
             }
           }
