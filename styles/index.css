@@ -1,0 +1,36 @@
+:root {
+  font-family: Inter, sans-serif;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+@supports (font-variation-settings: normal) {
+  :root {
+    font-family: InterVariable, sans-serif;
+  }
+}
+
+line#limit {
+  stroke: hsl(var(--primary));
+  stroke-width: 3;
+  stroke-dasharray: 3 6;
+}
+
+rect.highlighted {
+  fill: hsl(var(--primary));
+  transition: 100ms;
+}
+
+.axis {
+  font: 12px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}

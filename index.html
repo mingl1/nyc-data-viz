@@ -1,0 +1,5219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Precinct Map</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="./styles/core.min.css" />
+    <link rel="stylesheet" href="./styles/utilities.min.css" />
+    <link rel="stylesheet" href="./styles/visualization.css" />
+    <link rel="stylesheet" href="./styles/index.css" />
+    <script>
+      const htmlElement = document.documentElement;
+
+      const __FRANKEN__ = JSON.parse(
+        localStorage.getItem("__FRANKEN__") || "{}"
+      );
+
+      if (
+        __FRANKEN__.mode === "dark" ||
+        (!__FRANKEN__.mode &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        htmlElement.classList.add("dark");
+      } else {
+        htmlElement.classList.remove("dark");
+      }
+
+      htmlElement.classList.add(__FRANKEN__.theme || "uk-theme-zinc");
+      htmlElement.classList.add(__FRANKEN__.radii || "uk-radii-lg");
+      htmlElement.classList.add(__FRANKEN__.shadows || "uk-shadows-sm");
+      htmlElement.classList.add(__FRANKEN__.font || "uk-font-sm");
+    </script>
+
+    <script type="module" src="./styles/core.iife.js"></script>
+    <script type="module" src="./styles/icon.iife.js"></script>
+  </head>
+  <body
+    class="hidden bg-background font-geist-sans text-foreground antialiased md:block"
+  >
+    <div class="flex-1 space-y-4 p-8 pt-6">
+      <div class="flex items-center justify-between space-y-2">
+        <h2 class="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <div class="flex items-center space-x-2">
+          <button class="uk-btn uk-btn-ghost w-[260px]">
+            <div class="flex gap-x-2" uk-toggle="#demo">
+              <span class="size-4">
+                <uk-icon icon="map-pin"></uk-icon>
+              </span>
+              New York City
+            </div>
+          </button>
+          <!-- change visuals -->
+          <div class="uk-inline">
+            <button
+              class="uk-btn uk-btn-default uk-btn-icon"
+              aria-label="Customize"
+            >
+              <uk-icon icon="palette"></uk-icon>
+            </button>
+            <div
+              class="uk-card uk-card-body uk-drop w-96"
+              data-uk-drop="mode: click; offset: 8"
+            >
+              <div class="uk-h3">Customize</div>
+              <p class="mb-4 mt-1 text-muted-foreground">
+                Customize your Dashboard experience.
+              </p>
+              <uk-theme-switcher id="theme-switcher">
+                <select hidden>
+                  <optgroup data-key="theme" label="Theme">
+                    <option data-hex="#52525b" value="uk-theme-zinc" selected>
+                      Zinc
+                    </option>
+                    <option data-hex="#64748b" value="uk-theme-slate">
+                      Slate
+                    </option>
+                    <option data-hex="#78716c" value="uk-theme-stone">
+                      Stone
+                    </option>
+                    <option data-hex="#6b7280" value="uk-theme-gray">
+                      Gray
+                    </option>
+                    <option data-hex="#737373" value="uk-theme-neutral">
+                      Neutral
+                    </option>
+                    <option data-hex="#dc2626" value="uk-theme-red">Red</option>
+                    <option data-hex="#e11d48" value="uk-theme-rose">
+                      Rose
+                    </option>
+                    <option data-hex="#f97316" value="uk-theme-orange">
+                      Orange
+                    </option>
+                    <option data-hex="#16a34a" value="uk-theme-green">
+                      Green
+                    </option>
+                    <option data-hex="#2563eb" value="uk-theme-blue">
+                      Blue
+                    </option>
+                    <option data-hex="#facc15" value="uk-theme-yellow">
+                      Yellow
+                    </option>
+                    <option data-hex="#7c3aed" value="uk-theme-violet">
+                      Violet
+                    </option>
+                  </optgroup>
+                  <optgroup data-key="radii" label="Radii">
+                    <option value="uk-radii-none">None</option>
+                    <option value="uk-radii-sm">Small</option>
+                    <option value="uk-radii-md" selected>Medium</option>
+                    <option value="uk-radii-lg">Large</option>
+                  </optgroup>
+                  <optgroup data-key="shadows" label="Shadows">
+                    <option value="uk-shadows-none">None</option>
+                    <option value="uk-shadows-sm" selected>Small</option>
+                    <option value="uk-shadows-md">Medium</option>
+                    <option value="uk-shadows-lg">Large</option>
+                  </optgroup>
+                  <optgroup data-key="mode" label="Mode">
+                    <option data-icon="sun" value="light">Light</option>
+                    <option data-icon="moon" value="dark">Dark</option>
+                  </optgroup>
+                </select>
+              </uk-theme-switcher>
+            </div>
+          </div>
+          <!-- download dataset -->
+          <a
+            href="./data/"
+            download="final_data.csv"
+            class="uk-btn uk-btn-primary"
+            >Data</a
+          >
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="grid lg:grid-cols-8 my_container uk-card">
+          <div class="col-span-8 ml-4">
+            <ul
+              class="uk-subnav uk-subnav-primary flex-wrap justify-items justify-content h-full"
+              data-uk-switcher="connect: #analysis-switcher; animation: uk-animation-fade"
+              id="main-tabs"
+            >
+              <li><a href="#" id="mds_data_tab">Data MDS</a></li>
+              <li><a href="#" id="mds_variables_tab">Variables MDS</a></li>
+              <li><a href="#" id="pcp_tab">Parallel Coordinates (PCP)</a></li>
+              <li><a href="#">PCA</a></li>
+              <li><a href="#">Map</a></li>
+              <li><a href="#" id="visualization_tab">Lab1</a></li>
+            </ul>
+          </div>
+          <div class="ml-8 mt-4 h-10">
+            <select name="cluster">
+              <option value="1">1 cluster</option>
+              <option value="2">2 clusters</option>
+              <option value="3">3 clusters</option>
+              <option value="4">4 clusters</option>
+              <option value="5" selected>5 clusters</option>
+              <option value="6">6 clusters</option>
+              <option value="7">7 clusters</option>
+              <option value="8">8 clusters</option>
+              <option value="9">9 clusters</option>
+              <option value="10">10 clusters</option>
+            </select>
+          </div>
+          <div
+            class="uk-switcher switcher-container uk-card overflow-y-clip grid lg:col-span-8 grid-cols-8 border-t-0 border-l-0 border-0"
+            id="analysis-switcher"
+          >
+            <!-- Data MDS Container -->
+            <div
+              id="mds-data-container"
+              class="col-span-8 p-4"
+              style="min-height: 70vh"
+            >
+              <div id="mds-data-plot" style="width: 100%; height: 100%">
+                <p class="uk-text-muted uk-text-center uk-padding">
+                  Loading Data MDS plot...
+                </p>
+              </div>
+            </div>
+
+            <!-- Variables MDS Container -->
+            <div
+              id="mds-variables-container"
+              class="col-span-8 p-4"
+              style="min-height: 70vh"
+            >
+              <div id="mds-variables-plot" style="width: 100%; height: 100%">
+                <p class="uk-text-muted uk-text-center uk-padding">
+                  Loading Variables MDS plot...
+                </p>
+              </div>
+              <div class="uk-margin-top uk-text-center">
+                <button
+                  id="reset-pcp-order-btn"
+                  class="uk-button uk-button-default uk-button-small"
+                >
+                  Reset PCP Order
+                </button>
+                <p class="uk-text-small uk-text-muted uk-margin-small-top">
+                  Click variables above to define PCP axis order.
+                </p>
+              </div>
+            </div>
+
+            <!-- PCP Container -->
+            <div
+              id="pcp-container"
+              class="col-span-8 p-4"
+              style="min-height: 70vh"
+            >
+              <div id="pcp-plot" style="width: 100%; height: 100%">
+                <p class="uk-text-muted uk-text-center uk-padding">
+                  Loading Parallel Coordinates Plot...
+                </p>
+              </div>
+            </div>
+            <div
+              class="uk-card overflow-y-clip md:grid lg:col-span-8 lg:grid-span-8 grid-cols-8 border-t-0 border-l-0 border-0"
+              id="pca-container"
+            >
+              <div
+                class="uk-card flex h-full flex-col md:grid md:col-span-8 p-4 border-t-0 border-r-0 grid-cols-8"
+              >
+                <ul
+                  class="col-span-8 grid grid-cols-6"
+                  style="max-width: 100vw"
+                >
+                  <!-- <div class="col-span-2">sidebar</div> -->
+
+                  <li id="scree" class="col-span-2"></li>
+                  <!-- <li id="placeholder" class="col-span-4"></li> -->
+                  <li id="mse" class="col-span-2"></li>
+                  <!-- <hr class="col-span-6" /> -->
+                  <li id="significance" class="col-span-2"></li>
+                  <li id="biplot" class="col-span-3"></li>
+                  <li id="scatter-matrix" class="col-span-3"></li>
+                  <li class="col-span-6"><hr class="uk-divider-icon" /></li>
+                  <li
+                    id="pca-precincts"
+                    class="col-span-6"
+                    data-uk-filter="target: .scatter-points"
+                  ></li>
+                </ul>
+              </div>
+            </div>
+
+            <div id="map-container " class="col-span-8">
+              <ul>
+                <li id="map"></li>
+              </ul>
+            </div>
+
+            <div
+              class="uk-card overflow-y-clip md:grid lg:col-span-8 lg:grid-span-8 grid-cols-8"
+            >
+              <div
+                class="uk-card overflow-y-clip md:col-span-2"
+                id="lab1_sidebar"
+              >
+                <div
+                  class="uk-card-header backdrop-filter backdrop-blur-sm z-50"
+                >
+                  <h3 class="font-semibold leading-none tracking-tight">
+                    NYC Map
+                  </h3>
+                  <p class="text-sm text-muted-foreground">
+                    Analyzed over 200,000+ data points
+                  </p>
+                </div>
+                <div class="ml-4 w-full">
+                  <div class="mb-2">
+                    <div class="uk-form-label">Orientation:</div>
+                    <div class="uk-form-controls mt-1">
+                      <label class="mr-2">
+                        <input
+                          class="uk-radio mr-1"
+                          type="radio"
+                          name="orientation"
+                          checked
+                          value="vertical"
+                        />
+                        Vertical
+                      </label>
+                      <label>
+                        <input
+                          class="uk-radio mr-1"
+                          type="radio"
+                          name="orientation"
+                          value="horizontal"
+                        />
+                        Horizontal
+                      </label>
+                    </div>
+                  </div>
+                  <label class="uk-form-label mr-1">Bars:</label>
+                  <ul
+                    class="uk-subnav uk-subnav-primary pr-4 mt-1"
+                    style="display: block"
+                  >
+                    <li>
+                      <div
+                        class="h-8 mb-2"
+                        style="padding-left: 0; padding-right: 0; width: 90%"
+                      >
+                        <label class="uk-form-label mr-1">X:</label>
+                        <uk-select
+                          name="x"
+                          class="w-full"
+                          cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                          reactive
+                        >
+                          <select hidden id="x">
+                            <option value="precinct" selected>Precinct</option>
+                          </select>
+                        </uk-select>
+                      </div>
+                    </li>
+                    <li id="y-container">
+                      <div
+                        class="h-8 w-full"
+                        style="padding-left: 0; padding-right: 0; width: 90%"
+                      >
+                        <label class="uk-form-label mr-1">Y:</label>
+                        <uk-select
+                          name="y"
+                          class="w-full"
+                          cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full"
+                          reactive
+                        >
+                          <select hidden name="y-select" id="y">
+                            <option value="All Crimes" selected>
+                              All Crimes
+                            </option>
+                          </select>
+                        </uk-select>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="ml-4 w-full mt-4">
+                  <!-- <hr class="uk-hr w-full" /> -->
+
+                  <label class="uk-form-label mr-1">Histogram:</label>
+                  <ul
+                    class="uk-subnav uk-subnav-primary pr-4 mt-1"
+                    style="display: block"
+                  >
+                    <li>
+                      <div
+                        class="h-8 mb-2"
+                        style="padding-left: 0; padding-right: 0; width: 90%"
+                      >
+                        <label class="uk-form-label mr-1">X:</label>
+                        <uk-select
+                          name="x"
+                          class="w-full"
+                          cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                          reactive
+                        >
+                          <select hidden class="hist-x" id="histogram"></select>
+                        </uk-select>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+                <hr class="uk-hr w-full" />
+
+                <div class="ml-4 w-full mt-4">
+                  <div class="mb-2">
+                    <div class="uk-form-label">Swap axis:</div>
+                    <div class="uk-form-controls mt-1">
+                      <label class="mr-2">
+                        <input
+                          class="uk-radio mr-1"
+                          type="radio"
+                          name="swap"
+                          value="true"
+                        />
+                        yes
+                      </label>
+                      <label>
+                        <input
+                          class="uk-radio mr-1"
+                          type="radio"
+                          name="swap"
+                          value="false"
+                          checked
+                        />
+                        no
+                      </label>
+                    </div>
+                  </div>
+                  <label class="uk-form-label mr-1">Scatter plot:</label>
+                  <ul
+                    class="uk-subnav uk-subnav-primary pr-4 mt-1"
+                    style="display: block"
+                  >
+                    <li>
+                      <div
+                        class="h-8 mb-2"
+                        style="padding-left: 0; padding-right: 0; width: 90%"
+                      >
+                        <label class="uk-form-label mr-1">X:</label>
+                        <uk-select
+                          name="scatter-x"
+                          class="w-full scatter-x-select"
+                          cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                          reactive
+                        >
+                          <select
+                            hidden
+                            class="scatter-x"
+                            id="scatter-x"
+                          ></select>
+                        </uk-select>
+                      </div>
+                    </li>
+                    <li>
+                      <div
+                        class="h-8 mb-2"
+                        style="padding-left: 0; padding-right: 0; width: 90%"
+                      >
+                        <label class="uk-form-label mr-1">Y:</label>
+                        <uk-select
+                          name="scatter-y"
+                          class="w-full scatter-y-select"
+                          cls-custom="button: uk-input-fake uk-form-sm w-full; dropdown: w-full;shift: false; flip: false;boundary: !.my_container; "
+                          reactive
+                        >
+                          <select
+                            hidden
+                            class="scatter-y"
+                            id="scatter-y"
+                          ></select>
+                        </uk-select>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+                <hr class="uk-hr w-full" />
+              </div>
+              <div
+                class="uk-card flex h-full flex-col md:col-span-5 p-4 border-t-0 border-r-0"
+                id="container"
+              >
+                <ul>
+                  <li id="viz"></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as topoclient from "./d3/topojson-client.min.js";
+      // --- Global State ---
+      let kmeans = null;
+      kmeans = await fetch("http://18.209.163.81/k-means").then((data) =>
+        data.json()
+      );
+      let dataMDS = null;
+      let variablesMDS = null;
+      let theK = 4; // Default k value
+      let selectedPcpAxesOrder = [];
+      let allLoadedData = [];
+      let allColumnTypes = {};
+      let numericalColumnsForPCP = [];
+      let pcpAxesOrder = [];
+      let optimalPcpAxesOrder = [];
+
+      function showLab1() {
+        document.getElementById("lab1_sidebar").classList.remove("hidden");
+        update("vertical", false, barX, barY);
+      }
+      // document
+      //   .getElementById("visualization_tab")
+      //   .addEventListener("click", showLab1);
+      const isNumeric = (val) => !isNaN(val) && !isNaN(parseFloat(val));
+
+      // Schema definition for column types
+      const schema = {
+        categorical: ["string", "category", "ordinal"],
+        numerical: ["number", "integer", "float"],
+      };
+      function sortObjectByValue(obj) {
+        const sortedEntries = Object.entries(obj).sort(([, a], [, b]) => a - b);
+        return Object.fromEntries(sortedEntries);
+      }
+      // Function to infer column types from data
+      function inferColumnTypes(data) {
+        if (!data.length) return {};
+
+        const columnTypes = {};
+        const headers = Object.keys(data[0]);
+
+        headers.forEach((column) => {
+          // Sample the first 100 non-null values (or all if less than 100)
+          const sampleValues = data
+            .filter((row) => row[column] != null)
+            .slice(0, 100)
+            .map((row) => row[column]);
+
+          // Check if all sampled values are numeric
+          const isNumericColumn = sampleValues.every(isNumeric);
+
+          columnTypes[column] = isNumericColumn ? "numerical" : "categorical";
+        });
+
+        return columnTypes;
+      }
+
+      // Enhanced D3 CSV loader with type inference
+      function loadTypedCSV(url) {
+        return d3.csv(url).then((data) => {
+          const columnTypes = inferColumnTypes(data);
+
+          // Convert values based on inferred types
+          const typedData = data.map((row) => {
+            const typedRow = {};
+            Object.entries(row).forEach(([key, value]) => {
+              typedRow[key] = columnTypes[key] === "numerical" ? +value : value;
+            });
+            return typedRow;
+          });
+
+          return {
+            data: typedData,
+            columnTypes: columnTypes,
+          };
+        });
+      }
+
+      // loading data
+      const { data, columnTypes } = await loadTypedCSV("./data/final_data.csv");
+      Object.filter = (obj, predicate) =>
+        Object.keys(obj)
+          .filter((key) => predicate(obj[key]))
+          .reduce((res, key) => ((res[key] = obj[key]), res), {});
+      columnTypes["precinct"] = "categorical";
+      allLoadedData = data;
+      allColumnTypes = columnTypes;
+      numericalColumnsForPCP = Object.keys(
+        Object.filter(allColumnTypes, (type) => type === "numerical")
+      ).filter((col) => col !== "precinct"); // Ensure precinct is excluded
+      allColumnTypes["borough"] = "categorical";
+      pcpAxesOrder = ["borough", ...numericalColumnsForPCP];
+
+      // categorical
+      let x_axis_variables = [
+        "precinct",
+        "borough",
+        "All Crimes",
+        "All Victim_Races",
+        "All Victim_Sexes",
+        "All Suspect_Races",
+        "All Suspect_Sexes",
+        "All Police_Used",
+        "All Summoned_For",
+      ];
+      const numerical_x_variables = Object.keys(
+        Object.filter(columnTypes, (type) => type == "numerical")
+      );
+
+      const select = document.getElementById("x");
+
+      const capitalize = (str) =>
+        str
+          .replace(/_/g, " ") // Replace underscores with spaces
+          .toLowerCase()
+          .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize each word
+      // Populate new options
+      select.innerHTML = "";
+      x_axis_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        if (value.startsWith("All")) {
+          option.textContent = "Preset: " + capitalize(value);
+        } else option.textContent = capitalize(value); // Make display text more readable
+        if (value === "precinct") {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+      const scatter_variables = x_axis_variables
+        .slice(0, 2)
+        .concat(numerical_x_variables);
+
+      x_axis_variables.splice(0, 2);
+      x_axis_variables = x_axis_variables.concat(numerical_x_variables);
+      let x_dict = {};
+      // maps select options to aggregated columns
+      x_axis_variables.forEach((element) => {
+        let og = element;
+        if (element.startsWith("All")) {
+          if (element.endsWith("es"))
+            element = element.substring(0, element.length - 2);
+          if (element.endsWith("s"))
+            element = element.substring(0, element.length - 1);
+          const key_word = element.split("All ")[1];
+          x_dict[og] = Object.keys(data[0]).filter((k) =>
+            k.startsWith(key_word)
+          );
+        } else {
+          x_dict[element] = [element];
+        }
+      });
+      const select2 = document.getElementsByName("y-select");
+      // Populate new options
+      for (const i of select2) {
+        i.innerHTML = "";
+        x_axis_variables.forEach((value) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = capitalize(value); // Make display text more readable
+          if (value === "All Crimes") {
+            option.selected = true;
+          }
+          i.appendChild(option);
+        });
+      }
+      const select_hist_x = document.getElementsByClassName("hist-x")[0];
+      numerical_x_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = capitalize(value); // Make display text more readable
+        if (value === "All Crimes") {
+          option.selected = true;
+        }
+        select_hist_x.appendChild(option);
+      });
+
+      const select_scatter_x = document.getElementsByClassName("scatter-x")[0];
+      scatter_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = capitalize(value); // Make display text more readable
+        select_scatter_x.appendChild(option);
+      });
+      const select_scatter_y = document.getElementsByClassName("scatter-y")[0];
+
+      scatter_variables.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = capitalize(value); // Make display text more readable
+        select_scatter_y.appendChild(option);
+      });
+      // numerical
+
+      // Declare the chart dimensions and margins.
+      let lastX = "bar";
+      let histogramX, histogramY, barX, barY, scatterX, scatterY;
+      const map_width = 740;
+      const map_height = 600;
+      const map_marginTop = 100;
+      const map_marginRight = 0;
+      const map_marginBottom = 0;
+      const map_marginLeft = 0;
+      const color = d3.scaleOrdinal(d3.schemeAccent);
+
+      const topoData = await d3.json("./data/precinct.json");
+      const geojson = topojson.feature(topoData, topoData.objects.PRECINCT);
+      const projection = d3
+        .geoMercator()
+        .fitSize([map_width, map_height], geojson);
+      const path = d3.geoPath().projection(projection);
+
+      const map_svg = d3
+        .create("svg")
+        .attr("preserveAspectRatio", "xMidYMid meet")
+        .attr("viewBox", "0 0 740 600")
+        .style("width", "100%")
+        .style("height", "100%");
+      document.querySelector("#map").appendChild(map_svg.node());
+
+      const colorScale = d3.scaleOrdinal(d3.schemeAccent);
+      function precinctToIndex(precinct) {
+        const boroughMap = {
+          Manhattan: 0,
+          Bronx: 1,
+          Brooklyn: 2,
+          Queens: 3,
+          "Staten Island": 4,
+        };
+
+        // Check if input is a string (borough name)
+        if (typeof precinct === "string") {
+          return boroughMap[precinct] ?? -1; // Return index or -1 if not found
+        }
+
+        if (precinct >= 1 && precinct <= 39) return 0; // Manhattan
+        if (precinct >= 40 && precinct <= 59) return 1; // The Bronx
+        if (precinct >= 60 && precinct <= 99) return 2; // Brooklyn
+        if (precinct >= 100 && precinct <= 119) return 3; // Queens
+        if (precinct >= 120) return 4; // Staten Island
+
+        return;
+      }
+      const precinctColor = Object.values(d3.schemeCategory10);
+      const values = geojson.features.map(
+        (feature) => Math.random() * 100 // Replace with your actual values
+      );
+      const heightScale = d3
+        .scaleLinear()
+        .domain([0, d3.max(values)])
+        .range([0, 100]); // Maximum height in pixels
+
+      const mapLayer = map_svg.append("g").attr("class", "map-layer");
+
+      // Create bars layer
+      const barsLayer = map_svg.append("g").attr("class", "bars-layer");
+      const defs = map_svg.append("defs");
+
+      // Process each feature
+      geojson.features.forEach((feature, i) => {
+        // Create unique ID for this precinct
+        const precinctId = `precinct-${feature.properties.PRECINCT}`;
+
+        // Create a clipping path for this precinct
+        defs
+          .append("clipPath")
+          .attr("id", precinctId)
+          .append("path")
+          .attr("d", path(feature));
+
+        // Draw the base precinct shape
+        mapLayer
+          .append("path")
+          .datum(feature)
+          .attr("d", path)
+          .style(
+            "fill",
+            precinctColor[precinctToIndex(parseInt(precinctId.split("-")[1]))]
+          )
+          // .style("fill", "#fff")
+          .style("stroke", "#000")
+          .style("stroke-width", "0.5px");
+
+        // Calculate bounds for this precinct
+        const bounds = path.bounds(feature);
+        const [[x0, y0], [x1, y1]] = bounds;
+        const precinctHeight = y1 - y0;
+
+        // Create the bar using the precinct's shape
+        const value = values[i];
+        const scaledHeight = heightScale(value);
+        const yOffset = precinctHeight * (scaledHeight / 100);
+
+        // Create a group for the bar with the clip path
+        const barGroup = barsLayer
+          .append("g")
+          .attr("clip-path", `url(#${precinctId})`);
+
+        // Add the actual bar
+        barGroup
+          .append("path")
+          .datum(feature)
+          .attr("d", path)
+          .attr("transform", `translate(0, ${precinctHeight - yOffset})`)
+          .style("fill", "transparent")
+          .style("stroke", "none");
+
+        // Add value label at centroid
+        const centroid = path.centroid(feature);
+        map_svg
+          .append("text")
+          .attr("x", centroid[0])
+          .attr("y", centroid[1])
+          .attr("text-anchor", "middle")
+          .attr("font-size", "8px")
+          .attr("fill", "black")
+          .text(Math.round(value));
+      });
+
+      function createPctList() {
+        // Create main container
+        const cardBody = document.createElement("div");
+        cardBody.className =
+          "uk-card-body scroll-auto overflow-y-scroll pb-4 mb-0 ";
+        cardBody.style.height = "80%";
+        const container = document.createElement("div");
+        container.className = "space-y-8 scatter-points";
+        cardBody.appendChild(container);
+
+        // Create user items
+        data.forEach((pct, ind) => {
+          // Create user container
+          const i = pct.precinct;
+          const userDiv = document.createElement("div");
+          userDiv.className = "flex items-center scatter-point";
+
+          // Create avatar span
+          const avatarSpan = document.createElement("span");
+          avatarSpan.className =
+            "relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-accent";
+
+          // Create info container
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "ml-4 space-y-1";
+
+          // Create name paragraph
+          const namePara = document.createElement("p");
+          namePara.className = "text-sm font-medium leading-none";
+          namePara.textContent = pct.precinct + "th Precinct" + ", ";
+          const borough = document.createElement("span");
+          borough.textContent = pct.borough;
+          borough.style.color = precinctColor[precinctToIndex(pct.precinct)];
+          // Create email paragraph
+          const emailPara = document.createElement("p");
+          emailPara.className = "text-sm text-muted-foreground";
+          emailPara.textContent = pct.address;
+          const tags = JSON.parse(pct.description_tags);
+          tags.sort();
+
+          infoDiv.appendChild(namePara);
+          namePara.appendChild(borough);
+          infoDiv.appendChild(emailPara);
+          userDiv.appendChild(avatarSpan);
+          userDiv.appendChild(infoDiv);
+          let length = 0;
+          let dotted = false;
+          tags.forEach((t) => {
+            let tag = document.createElement("button");
+            length += t.length;
+            if (length >= 60) {
+              if (dotted) {
+                tag.className = `precinct-${i}-tag hidden `;
+                // tag.hidden = true;
+                // UIkit.toggle(tag);
+              } else {
+                // tag.className = `precinct-${i}-tag `;
+                tag.setAttribute(
+                  "data-uk-toggle",
+                  `target: .precinct-${i}-tag; cls: hidden`
+                );
+                dotted = true;
+                const prev = t;
+                t = "...";
+                tag.addEventListener("click", function (e) {
+                  e.currentTarget.textContent = prev;
+                });
+              }
+            }
+            tag.className += "uk-tag uk-tag-secondary mx-1";
+            tag.textContent = t;
+
+            infoDiv.appendChild(tag);
+          });
+          if (infoDiv.lastChild.textContent == "...") {
+            infoDiv.removeChild(infoDiv.lastChild);
+          }
+          container.appendChild(userDiv);
+        });
+
+        return cardBody;
+      }
+
+      const lab1_sidebar = document.querySelector("#lab1_sidebar");
+      lab1_sidebar.style.maxHeight = "80vh";
+      lab1_sidebar.appendChild(createPctList());
+      const pca_precincts = document.querySelector("#pca-precincts");
+      // lab1_sidebar.classList.add("hidden");
+
+      // ul.setAttribute("data-uk-switcher", "connect: .switcher-container");
+
+      barX = document.querySelector("#x").value;
+      barY = document.querySelector("#y").value;
+      const viz = document.getElementById("viz");
+      const pca = document.getElementById("pca-container");
+      viz.style.maxHeight = "80vh";
+      // pca.style.maxHeight = "100vh";
+
+      const rankMap = {
+        sgt: "sergeant",
+        po: "police officer",
+        det: "detective",
+      };
+
+      function yAxisVisibilityForHistograms(selectedValue) {
+        if (selectedValue.startsWith("All")) {
+          if (
+            !document.getElementById("y-container").classList.contains("hidden")
+          ) {
+            document.getElementById("y-container").classList.add("hidden");
+          }
+        } else {
+          if (
+            document.getElementById("y-container").classList.contains("hidden")
+          ) {
+            document.getElementById("y-container").classList.remove("hidden");
+          }
+        }
+      }
+      function onChange(e) {
+        const radio = document.querySelector(
+          'input[name="orientation"]:checked'
+        );
+        const swapp = document.querySelector('input[name="swap"]:checked');
+
+        const orientation = radio.value;
+        const swap = swapp.value === "true";
+        if (e) {
+          const selectElement = e.target.children[0]; // Get the closest select element
+
+          let selectId;
+          if (selectElement) {
+            selectId = selectElement.id; // Get the select ID
+            const selectedValue = e.detail.value; // Assuming the event provides the selected value
+
+            if (selectId === "x") {
+              lastX = "bar";
+              barX = selectedValue;
+              update(orientation, false, barX, barY, "bar");
+              yAxisVisibilityForHistograms(selectedValue);
+            } else if (selectId === "y") {
+              lastX = "bar";
+              barY = selectedValue;
+              update(orientation, false, barX, barY, "bar");
+            } else if (selectId === "histogram") {
+              lastX = "histogram";
+              histogramX = selectedValue;
+              histogramY = "histogram";
+              update(orientation, false, histogramX, histogramY, "hist");
+            } else if (selectId === "scatter-x") {
+              scatterX = selectedValue;
+              if (!scatterX || !scatterY) {
+                return;
+              }
+              update("vertical", swap, scatterX, scatterY, "scatter");
+            } else if (selectId === "scatter-y") {
+              scatterY = selectedValue;
+              if (!scatterX || !scatterY) {
+                return;
+              }
+              update("vertical", swap, scatterX, scatterY, "scatter");
+            }
+          } else {
+            if (lastX == "bar") {
+              update(orientation, false, barX, barY, "bar");
+            } else {
+              update(orientation, false, histogramX, histogramY, "hist");
+            }
+          }
+        } else {
+          update(orientation, swap, scatterX, scatterY, "scatter");
+        }
+      }
+      function addListeners() {
+        document.addEventListener("uk-select:input", onChange);
+        document.addEventListener("change", function (e) {
+          if (e.target.matches('input[name="orientation"]')) {
+            onChange(e);
+          } else {
+            if (e.target.matches('input[name="swap"]')) {
+              onChange(null);
+            }
+          }
+        });
+      }
+      function addXAxis(svg, x, new_data, height, rotate = false) {
+        if (rotate) {
+          svg
+            .append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(x))
+            .selectAll("text")
+            .attr("transform", `translate(-10,0)rotate(-45)`)
+            .style("text-anchor", "end")
+            .classed("text-sm", true)
+            .classed("lg:text-base", true)
+            .classed("x-text", true)
+            .style("fill", "hsl(var(--foreground))");
+        } else
+          svg
+            .append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(x))
+            .selectAll("text")
+            .classed("text-sm", true)
+            .classed("lg:text-base", true)
+
+            .attr(
+              "transform",
+              `translate(5,10)${
+                new_data.length > 20 ? "rotate(-90)" : "rotate(0)"
+              }`
+            )
+            .style("text-anchor", "end")
+            .style("fill", "hsl(var(--foreground))");
+      }
+      function addYAxis(svg, y, log = false) {
+        if (log) {
+          const axis = d3
+            .axisLeft(y)
+            .tickFormat(d3.format(".0%")) // Format ticks without decimals
+            .tickValues([0.01, 0.05, 0.1, 0.34]); // Manually specify tick values
+
+          svg
+            .append("g")
+            .call(axis)
+            .classed("text-sm", true)
+            .classed("lg:text-base", true);
+        } else {
+          svg
+            .append("g")
+            .call(d3.axisLeft(y))
+            .classed("text-sm", true)
+            .classed("lg:text-base", true);
+        }
+
+        // .style("fill", "hsl(var(--foreground))");
+      }
+      function addTitle(
+        svg,
+        width,
+        margin,
+        currX,
+        currY,
+        prefix = "Scattering: ",
+        predefined = false
+      ) {
+        if (predefined) {
+          svg
+            .append("text")
+            .attr("x", width / 2)
+            .attr("y", 0 - margin.top / 2)
+            .attr("text-anchor", "middle")
+            .classed("text-xl", true)
+            .classed("md:text-2xl", true)
+            .classed("lg:text-3xl", true)
+            .style("text-decoration", "underline")
+            .style("fill", "hsl(var(--foreground))")
+            .text(predefined);
+        } else {
+          svg
+            .append("text")
+            .attr("x", width / 2)
+            .attr("y", 0 - margin.top / 2)
+            .attr("text-anchor", "middle")
+            .classed("text-xl", true)
+            .classed("md:text-2xl", true)
+            .classed("lg:text-3xl", true)
+            .style("text-decoration", "underline")
+            .style("fill", "hsl(var(--foreground))")
+            .text(`${prefix}${capitalize(currX)} Vs. ${capitalize(currY)}`);
+        }
+      }
+      function addYText(svg, height, margin, currY, currX) {
+        svg
+          .append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -height / 2)
+          .attr("y", -margin.left + 20)
+          .attr("text-anchor", "middle")
+          .classed("text-lg", true)
+          .classed("md:text-xl", true)
+          .classed("lg:text-2xl", true)
+
+          .text(
+            capitalize(currY === "histogram" ? "Number of Precincts" : currY)
+          )
+          .style("fill", "hsl(var(--foreground))");
+      }
+      function addXText(svg, width, height, margin, currX, rotate = false) {
+        if (rotate)
+          svg
+            .append("text")
+            .attr("x", width / 2)
+            .attr("y", height + margin.bottom - 10)
+            .attr("text-anchor", "middle")
+            .classed("text-lg", true)
+            .classed("md:text-xl", true)
+            .classed("lg:text-2xl", true)
+            .text(capitalize(currX))
+            .style("fill", "hsl(var(--foreground))");
+        else
+          svg
+            .append("text")
+            .attr("x", width / 2)
+            .attr("y", height + margin.bottom - 10)
+            .attr("text-anchor", "middle")
+            .classed("text-lg", true)
+            .classed("md:text-xl", true)
+            .classed("lg:text-2xl", true)
+            .text(capitalize(currX))
+            .style("fill", "hsl(var(--foreground))");
+      }
+      function initializeSvg(
+        width,
+        height,
+        margin,
+        selector = "#viz",
+        maxH = "70vh"
+      ) {
+        // First, clear any existing SVG
+        d3.select(selector).select("svg").remove();
+
+        // Apply CSS to the container
+        d3.select(selector).style("width", "100%").style("overflow", "hidden");
+
+        return d3
+          .select(selector)
+          .append("svg")
+          .attr(
+            "viewBox",
+            `0 0 ${width + margin.left + margin.right} ${
+              height + margin.top + margin.bottom
+            }`
+          )
+          .attr("width", "100%")
+          .attr("height", "100%")
+          .style("max-width", "100%")
+          .style("max-height", maxH)
+          .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`)
+          .style("fill", "hsl(var(--foreground))");
+      }
+      function prepareScatterData(
+        data,
+        currX,
+        currY,
+        columnTypes,
+        x_dict,
+        swap
+      ) {
+        const typeOfX = columnTypes[currX];
+        const typeOfY = columnTypes[currY];
+        let new_data = [];
+        let maxHeight = 0;
+
+        if (typeOfX === "categorical" && typeOfY === "categorical") {
+          // Get unique categories for x and y axes
+          const xCategories = Array.from(new Set(data.map((d) => d[currX])));
+          const yCategories = Array.from(new Set(data.map((d) => d[currY])));
+
+          // Create a map to count occurrences
+          let combinedMap = new Map();
+
+          for (const row of data) {
+            const xValue = row[currX];
+            const yValue = row[currY];
+            const key = `${xValue}-${yValue}`;
+
+            // Count occurrences
+            if (combinedMap.has(key)) {
+              combinedMap.set(key, combinedMap.get(key) + 1);
+            } else {
+              combinedMap.set(key, 1);
+            }
+
+            // Track maximum height
+            maxHeight = Math.max(maxHeight, combinedMap.get(key));
+          }
+
+          // Convert Map to array of objects
+          new_data = Array.from(combinedMap, ([precinct, value]) => {
+            const [xVal, yVal] = precinct.split("-");
+            return {
+              precinct: swap ? yVal : xVal,
+              value,
+              xValue: swap ? xVal : yVal,
+            };
+          }).sort((a, b) => b.value - a.value);
+        } else if (currX === "borough") {
+          const cols = x_dict[currY] || currY;
+          let boroughMap = new Map();
+
+          for (const row of data) {
+            let tot = 0;
+            for (const i of cols) {
+              tot += row[i];
+            }
+
+            let precinctName = row[currX];
+
+            if (boroughMap.has(precinctName)) {
+              boroughMap.set(precinctName, boroughMap.get(precinctName) + tot);
+            } else {
+              boroughMap.set(precinctName, tot);
+            }
+
+            maxHeight = Math.max(maxHeight, boroughMap.get(precinctName));
+          }
+
+          new_data = Array.from(boroughMap, ([precinct, value]) => ({
+            precinct,
+            value,
+          }));
+        } else if (typeOfX === "categorical" && typeOfY === "numerical") {
+          // Aggregate numerical values for each categorical X value
+          const cols = x_dict[currY] || currY;
+          new_data = data.reduce((acc, row) => {
+            const categoryValue = row[currX];
+            const numericTotal = Array.isArray(cols)
+              ? cols.reduce((sum, col) => sum + (row[col] || 0), 0)
+              : row[cols] || 0;
+
+            maxHeight = Math.max(maxHeight, numericTotal);
+
+            // Find existing entry or create new
+            const existingEntry = acc.find((d) => d.precinct === categoryValue);
+            if (existingEntry) {
+              existingEntry.value += numericTotal;
+            } else {
+              acc.push({ precinct: categoryValue, value: numericTotal });
+            }
+
+            return acc;
+          }, []);
+        } else if (typeOfX === "numerical" && typeOfY === "categorical") {
+          // Aggregate numerical values for each categorical Y value
+          const cols = x_dict[currX] || currX;
+          new_data = data.reduce((acc, row) => {
+            const categoryValue = row[currY];
+            const numericTotal = Array.isArray(cols)
+              ? cols.reduce((sum, col) => sum + (row[col] || 0), 0)
+              : row[cols] || 0;
+
+            maxHeight = Math.max(maxHeight, numericTotal);
+
+            // Find existing entry or create new
+            const existingEntry = acc.find((d) => d.precinct === categoryValue);
+            if (existingEntry) {
+              existingEntry.value += numericTotal;
+            } else {
+              acc.push({ precinct: categoryValue, value: numericTotal });
+            }
+
+            return acc;
+          }, []);
+        } else if (typeOfX === "numerical" && typeOfY === "numerical") {
+          // Direct mapping for numerical-numerical
+          new_data = data.map((row) => ({
+            precinct: row[currX],
+            value: row[currY],
+          }));
+          maxHeight = Math.max(...new_data.map((d) => d.value));
+        } else if (typeOfX === "categorical" && typeOfY === "categorical") {
+          // Count occurrences for categorical-categorical
+          const groupedData = data.reduce((acc, row) => {
+            const xValue = row[currX];
+            const yValue = row[currY];
+            const key = `${xValue}-${yValue}`;
+
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+          }, {});
+
+          new_data = Object.entries(groupedData).map(([key, value]) => ({
+            precinct: key,
+            value: value,
+          }));
+
+          maxHeight = Math.max(...new_data.map((d) => d.value));
+        }
+
+        // Sort by value in descending order
+        return {
+          new_data: new_data.sort((a, b) => b.value - a.value),
+          maxHeight,
+        };
+      }
+      function createScales(
+        new_data,
+        width,
+        height,
+        maxHeight,
+        typeOfX,
+        typeOfY,
+        swap,
+        log = false
+      ) {
+        let boundY = swap ? [0, width] : [height, 0];
+        let boundX = swap ? [height, 0] : [0, width - 20];
+
+        const x =
+          typeOfX === "categorical"
+            ? d3
+                .scaleBand()
+                .range(boundX)
+                .domain(new_data.map((d) => d.precinct))
+                .padding(0.25)
+            : // .paddingInner(0.1)
+              // .paddingOuter(0.3)
+              d3.scaleLinear().domain([0, maxHeight]).range(boundX).nice();
+        if (log) {
+          const y = d3
+            .scaleLog()
+            .domain([0.01, maxHeight])
+            .range(boundY)
+            .nice();
+          return { x, y };
+        }
+        const y =
+          typeOfY === "numerical"
+            ? d3.scaleLinear().domain([0, maxHeight]).range(boundY).nice()
+            : d3
+                .scaleBand()
+                .range(boundY)
+                .domain(new_data.map((d) => d.value))
+                .padding(0.2);
+        return { x, y };
+      }
+      function renderEdgeCaseScatterPlot(
+        width,
+        height,
+        margin,
+        currX,
+        currY,
+        swap
+      ) {
+        const svg = initializeSvg(width, height, margin, "#viz");
+
+        // Get unique categories for x and y axes
+        const xCategories = Array.from(new Set(data.map((d) => d[currX])));
+        const yCategories = Array.from(new Set(data.map((d) => d[currY])));
+
+        // Create scales for categorical axes using scaleBand
+        let xScale, yScale;
+        // Append axes'
+        if (swap) {
+          xScale = d3
+            .scaleBand()
+            .domain(xCategories)
+            .range([height, 0])
+            .padding(0.1);
+
+          yScale = d3
+            .scaleBand()
+            .domain(yCategories)
+            .range([0, height])
+            .padding(0.1);
+          svg.append("g").call(d3.axisLeft(xScale));
+          svg
+            .append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(yScale));
+        } else {
+          xScale = d3
+            .scaleBand()
+            .domain(xCategories)
+            .range([0, width])
+            .padding(0.1);
+
+          yScale = d3
+            .scaleBand()
+            .domain(yCategories)
+            .range([height, 0])
+            .padding(0.1);
+          svg
+            .append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(xScale));
+
+          svg.append("g").call(d3.axisLeft(yScale));
+        }
+        // Define jitter ranges based on the bandwidth of the scales
+        const jitterX = xScale.bandwidth();
+        const jitterY = yScale.bandwidth();
+
+        // Draw scatter points with jitter
+        svg
+          .selectAll("circle")
+          .data(data)
+          .enter()
+          .append("circle")
+          .attr("cx", (d) => {
+            // Center of the band plus a random offset within ±40% of the bandwidth
+            return (
+              xScale(d[currX]) +
+              xScale.bandwidth() / 2 +
+              (Math.random() - 0.5) * jitterX * 0.8
+            );
+          })
+          .attr("cy", (d) => {
+            return (
+              yScale(d[currY]) +
+              yScale.bandwidth() / 2 +
+              (Math.random() - 0.5) * jitterY * 0.8
+            );
+          })
+          .attr("r", 4)
+          .attr("fill", (d) => precinctColor[precinctToIndex(d[currX])]); // Adjust coloring as needed
+
+        if (swap) {
+          addXText(svg, width, height, margin, currY);
+          addTitle(svg, width, margin, currY, currX);
+          addYText(svg, height, margin, currX, currY);
+        } else {
+          addXText(svg, width, height, margin, currX);
+          addTitle(svg, width, margin, currX, currY);
+          addYText(svg, height, margin, currY, currX);
+        }
+      }
+      function renderScatterPlot(
+        svg,
+        new_data,
+        x,
+        y,
+        currX,
+        currY,
+        swap,
+        precinctColor,
+        precinctToIndex
+      ) {
+        const pointSize = currX === "borough" ? 20 : 4;
+        const circleAttributes = swap
+          ? {
+              cx: (d) => y(d.value),
+              cy: (d) => x(d.precinct) + (x.bandwidth ? x.bandwidth() / 2 : 0),
+            }
+          : {
+              cx: (d) => x(d.precinct) + (x.bandwidth ? x.bandwidth() / 2 : 0),
+              cy: (d) => y(d.value),
+            };
+
+        svg
+          .selectAll("mybar")
+          .data(new_data)
+          .enter()
+          .append("circle")
+          .attr("cx", circleAttributes.cx)
+          .attr("cy", circleAttributes.cy)
+          .attr("r", pointSize)
+          .attr("fill", (d) => precinctColor[precinctToIndex(d.precinct)])
+          .attr("transform", circleAttributes.transform);
+      }
+      function createScatterPlot(
+        type,
+        data,
+        columnTypes,
+        x_dict,
+        currX,
+        currY,
+        width,
+        height,
+        margin,
+        precinctColor,
+        precinctToIndex,
+        swap = false
+      ) {
+        if (type !== "scatter") return;
+
+        if (
+          columnTypes[currX] === "categorical" &&
+          columnTypes[currY] === "categorical"
+        ) {
+          renderEdgeCaseScatterPlot(width, height, margin, currX, currY, swap);
+          return;
+        }
+
+        // Prepare data
+        const { new_data, maxHeight } = prepareScatterData(
+          data,
+          currX,
+          currY,
+          columnTypes,
+          x_dict,
+          swap
+        );
+
+        // Initialize SVG
+        const svg = initializeSvg(width, height, margin);
+
+        // Create scales
+        const { x, y } = createScales(
+          new_data,
+          width,
+          height,
+          maxHeight,
+          columnTypes[currX],
+          columnTypes[currY],
+          swap
+        );
+
+        // Add axes and labels
+        if (swap) {
+          addXAxis(svg, y, new_data, height);
+          addYAxis(svg, x);
+          addXText(svg, width, height, margin, currY);
+          addTitle(svg, width, margin, currY, currX);
+          addYText(svg, height, margin, currX, currY);
+        } else {
+          addXAxis(svg, x, new_data, height);
+          addYAxis(svg, y);
+          addXText(svg, width, height, margin, currX);
+          addTitle(svg, width, margin, currX, currY);
+          addYText(svg, height, margin, currY, currX);
+        }
+
+        // Render scatter plot points
+        renderScatterPlot(
+          svg,
+          new_data,
+          x,
+          y,
+          currX,
+          currY,
+          swap,
+          precinctColor,
+          precinctToIndex
+        );
+      }
+      function createBarPlot(
+        type,
+        data,
+        columnTypes,
+        x_dict,
+        currX,
+        currY,
+        width,
+        height,
+        margin,
+        precinctColor,
+        precinctToIndex,
+        swap = false
+      ) {
+        if (type !== "bar") return;
+
+        // Prepare data for bar plot
+        const { new_data, maxHeight } = prepareScatterData(
+          data,
+          currX,
+          currY,
+          columnTypes,
+          x_dict,
+          swap
+        );
+
+        // Initialize SVG
+        const svg = initializeSvg(width, height, margin);
+
+        // Create scales
+        let { x, y } = createScales(
+          new_data,
+          width,
+          height,
+          maxHeight,
+          columnTypes[currX],
+          columnTypes[currY],
+          swap
+        );
+
+        // Add axes
+        if (swap) {
+          addXAxis(svg, y, new_data, height);
+          addYAxis(svg, x);
+          addXText(svg, width, height, margin, currY);
+          addTitle(svg, width, margin, currY, currX, "Bar of ");
+          addYText(svg, height, margin, currX, currY);
+        } else {
+          addXAxis(svg, x, new_data, height);
+          addYAxis(svg, y);
+          addXText(svg, width, height, margin, currX);
+          addTitle(svg, width, margin, currX, currY, "Bar of ");
+          addYText(svg, height, margin, currY, currX);
+        }
+
+        // Render bars
+        if (swap) {
+          y = d3
+            .scaleBand()
+            .domain(new_data.map((d) => d.precinct))
+            .range([0, height])
+            .padding(0.2);
+
+          // Create an x-scale for numeric values.
+          x = d3.scaleLinear().domain([0, maxHeight]).range([0, width]);
+          svg
+            .selectAll("rect")
+            .data(new_data)
+            .enter()
+            .append("rect")
+            .attr("y", (d) => y(d.precinct))
+            .attr("x", 0)
+            .attr("height", y.bandwidth())
+            .attr("width", (d) => x(d.value))
+            .attr("fill", (d) => precinctColor[precinctToIndex(d.precinct)]);
+        } else {
+          svg
+            .selectAll("bar")
+            .data(new_data)
+            .enter()
+            .append("rect")
+            .attr("x", (d) => x(d.precinct))
+            .attr("y", (d) => y(d.value))
+            .attr("width", x.bandwidth())
+            .attr("height", (d) => height - y(d.value))
+            .attr("fill", (d) => precinctColor[precinctToIndex(d.precinct)]);
+        }
+      }
+      function update(direction, scatter, currX, currY, type) {
+        if (!currX && !currY) {
+          return;
+        }
+        const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+        const width = 800 - margin.left - margin.right;
+        const height = 650 - margin.top - margin.bottom;
+        let swap = scatter;
+        viz.innerHTML = "";
+        if (type == "scatter") {
+          createScatterPlot(
+            type,
+            data,
+            columnTypes,
+            x_dict,
+            currX,
+            currY,
+            width,
+            height,
+            margin,
+            precinctColor,
+            precinctToIndex,
+            swap
+          );
+        } else if (
+          type == "bar" &&
+          !(currX.startsWith("All") || currY.startsWith("All"))
+        ) {
+          createBarPlot(
+            type,
+            data,
+            columnTypes,
+            x_dict,
+            currX,
+            currY,
+            width,
+            height,
+            margin,
+            precinctColor,
+            precinctToIndex,
+            direction === "horizontal"
+          );
+        } else if (direction === "vertical") {
+          const svg = initializeSvg(width, height, margin, "#viz");
+          if (currY === "histogram") {
+            // Extract numeric values for the column specified by currX.
+            const values = data
+              .map((row) => +row[currX])
+              .filter((d) => !isNaN(d));
+
+            // Compute the extent (min and max) of the data.
+            let [min, max] = d3.extent(values);
+
+            // Handle the edge case where all values are equal.
+            if (min === max) {
+              min = min - 1;
+              max = max + 1;
+            }
+
+            // Define the number of bins you want.
+            const numBins = 20;
+            // Compute the bin width so that bins are equally spaced.
+            const binWidth = (max - min) / numBins;
+            // Create an array of thresholds using d3.range. This ensures equal spacing.
+            const thresholds = d3.range(min, max, binWidth);
+
+            // Create a linear x-scale mapping the data extent to the width of the SVG.
+            let x = d3.scaleLinear().domain([min, max]).range([0, width]);
+
+            // Generate the bins using d3.histogram with the computed thresholds.
+            const histogramGenerator = d3
+              .histogram()
+              .domain(x.domain())
+              .thresholds(thresholds);
+
+            const bins = histogramGenerator(values);
+
+            // Create a y-scale based on the maximum count among bins.
+            let y = d3
+              .scaleLinear()
+              .domain([0, d3.max(bins, (d) => d.length)])
+              .range([height, 0])
+              .nice();
+
+            // Append the x-axis at the bottom.
+            svg
+              .append("g")
+              .attr("transform", `translate(0, ${height})`)
+              .call(d3.axisBottom(x));
+
+            // Append the y-axis on the left.
+            svg.append("g").call(d3.axisLeft(y));
+
+            // Create and style the bars for the histogram.
+            svg
+              .selectAll("rect")
+              .data(bins)
+              .enter()
+              .append("rect")
+              .attr("x", (d) => x(d.x0) + 1)
+              .attr("y", (d) => y(d.length))
+              .attr("width", (d) => Math.max(0, x(d.x1) - x(d.x0) - 1))
+              .attr("height", (d) => height - y(d.length))
+              .attr("fill", "steelblue");
+
+            // Add a title to the histogram.
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", 0 - margin.top / 2)
+              .attr("text-anchor", "middle")
+              .style("font-size", "16px")
+              .style("text-decoration", "underline")
+              .style("color", "var(--primary-foreground)")
+              .text(`Histogram of ${capitalize(currX)}`);
+          } else if (
+            currX.startsWith("All") ||
+            (columnTypes[currX] == "categorical" &&
+              (currY.startsWith("All") || columnTypes[currY] == "numerical")) ||
+            (columnTypes[currX] == "numerical" &&
+              columnTypes[currY] == "categorical")
+          ) {
+            swap = false;
+            if (
+              columnTypes[currX] == "numerical" &&
+              columnTypes[currY] == "categorical"
+            ) {
+              swap = true;
+              let temp = currX;
+              currX = currY;
+              currY = temp;
+            }
+            const cols = x_dict[currY] || currY;
+            let new_data = [];
+            let maxHeight = 0;
+
+            if (currX === "borough") {
+              let boroughMap = new Map();
+
+              for (const row of data) {
+                let tot = 0;
+                for (const i of cols) {
+                  tot += row[i];
+                }
+
+                let precinctName = row[currX];
+
+                if (boroughMap.has(precinctName)) {
+                  boroughMap.set(
+                    precinctName,
+                    boroughMap.get(precinctName) + tot
+                  );
+                } else {
+                  boroughMap.set(precinctName, tot);
+                }
+
+                maxHeight = Math.max(maxHeight, boroughMap.get(precinctName));
+              }
+
+              new_data = Array.from(boroughMap, ([precinct, value]) => ({
+                precinct,
+                value,
+              }));
+            } else {
+              if (currX.startsWith("All")) {
+                const other_cols = x_dict[currX];
+                // Create a map to store aggregated values for each column
+                let columnTotals = new Map();
+
+                // Initialize the map with 0 for each column
+                for (const col of other_cols) {
+                  columnTotals.set(col, 0);
+                }
+
+                // Calculate totals for each column across all rows
+                for (const row of data) {
+                  for (const col of other_cols) {
+                    columnTotals.set(col, columnTotals.get(col) + row[col]);
+                  }
+                }
+
+                // Convert the map to the required format for visualization
+                new_data = Array.from(columnTotals, ([col, value]) => ({
+                  precinct: col.split("_")[col.split("_").length - 1], // Using column name as precinct
+                  value: value,
+                }));
+
+                // Update maxHeight
+                maxHeight = Math.max(...columnTotals.values());
+              } else {
+                for (const row of data) {
+                  let tot = 0;
+                  for (const i of cols) {
+                    tot += row[i];
+                  }
+                  maxHeight = Math.max(maxHeight, tot);
+                  new_data.push({ precinct: row[currX], value: tot });
+                }
+              }
+            }
+
+            if (swap) {
+              // Swap the data so that:
+              // - d.value becomes the category (for the y axis)
+              // - d.precinct becomes the numerical value (for the x axis)
+              new_data = new_data.map((d) => {
+                return { precinct: d.value, value: d.precinct };
+              });
+
+              // Sort based on the numerical value
+              new_data = new_data.sort((a, b) => b.value - a.value);
+
+              // Here, x is a linear scale (numerical) and y is a band scale (categorical)
+              // if (currY==="precinct"){
+              //   maxHeight
+              // }
+              let x = d3
+                .scaleLinear()
+                .domain([0, maxHeight]) // maxHeight should reflect the maximum numerical value
+                .range([0, width])
+                .nice();
+
+              let y = d3
+                .scaleBand()
+                .domain(new_data.map((d) => d.value))
+                .range([height, 0])
+                .padding(0.2);
+
+              // Append the x-axis (numerical) at the bottom.
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x));
+
+              // Append the y-axis (categorical) on the left.
+              svg.append("g").call(d3.axisLeft(y));
+
+              // If displaying scatter points:
+              if (scatter) {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("circle")
+                  // Use x(d.value) because d.value is now numerical
+                  .attr("cx", (d) => x(d.precinct))
+                  // For the y coordinate, center the point within the band.
+                  .attr("cy", (d) => y(d.value) + y.bandwidth() / 2)
+                  .attr("r", currX === "borough" ? 20 : 4)
+                  .attr("fill", (d) => precinctColor[precinctToIndex(d.value)])
+                  .attr(
+                    "transform",
+                    currX === "borough"
+                      ? "translate(" + 0 + ",0)"
+                      : "translate(" + 2 + ",0)"
+                  );
+              } else {
+                svg
+                  .append("text")
+                  .attr("x", width / 2)
+                  .attr("y", height + margin.bottom - 10)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "12px")
+                  .text(capitalize(currY));
+
+                // Add label for the y-axis.
+                svg
+                  .append("text")
+                  .attr("transform", "rotate(-90)")
+                  .attr("x", -height / 2)
+                  .attr("y", -margin.left + 20)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "12px")
+                  .text(
+                    capitalize(
+                      currX === "histogram" ? "Number of Precincts" : currX
+                    )
+                  );
+              }
+            } else {
+              // Original case: numerical values on the y-axis, categorical data on the x-axis.
+              new_data = new_data.sort((a, b) => b.value - a.value);
+
+              let x = d3
+                .scaleBand()
+                .range([0, width])
+                .domain(new_data.map((d) => d.precinct))
+                .padding(0.2);
+              if (direction === "horizontal") {
+                x = d3
+                  .scaleBand()
+                  .range([0, height])
+                  .domain(new_data.map((d) => d.precinct))
+                  .padding(0.2);
+              }
+              if (direction === "vertical") {
+                svg
+                  .append("g")
+                  .attr("transform", `translate(0, ${height})`)
+                  .call(d3.axisBottom(x))
+                  .selectAll("text")
+                  .attr(
+                    "transform",
+                    `translate(-10,10)${
+                      new_data.length > 20 ? "rotate(-90)" : "rotate(-45)"
+                    }`
+                  )
+                  .style("text-anchor", "end");
+              } else {
+                svg.append("g").call(d3.axisLeft(x));
+              }
+              let y = d3
+                .scaleLinear()
+                .domain([0, maxHeight])
+                .range([height, 0])
+                .nice();
+              if (direction === "horizontal") {
+                y = d3
+                  .scaleLinear()
+                  .domain([0, maxHeight])
+                  .range([0, width])
+                  .nice();
+              }
+              if (direction === "vertical") {
+                svg.append("g").call(d3.axisLeft(y));
+              } else {
+                svg
+                  .append("g")
+                  .attr("transform", `translate(0, ${height})`)
+                  .call(d3.axisBottom(y));
+              }
+
+              if (scatter) {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("circle")
+                  // Center the circle within the band:
+                  .attr("cx", (d) => x(d.precinct) + x.bandwidth() / 2)
+                  .attr("cy", (d) => y(d.value))
+                  .attr("r", currX === "borough" ? 20 : 4)
+                  .attr(
+                    "fill",
+                    (d) => precinctColor[precinctToIndex(d.precinct)]
+                  )
+                  .attr(
+                    "transform",
+                    currX === "borough"
+                      ? "translate(" + 55 + ",0)"
+                      : "translate(" + 10 + ",0)"
+                  );
+              } else if (direction === "vertical") {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("rect")
+                  .attr("x", (d) => x(d.precinct))
+                  .attr("y", (d) => y(d.value))
+                  .attr("width", x.bandwidth())
+                  .attr("height", (d) => height - y(d.value))
+                  .attr(
+                    "fill",
+                    (d) => precinctColor[precinctToIndex(d.precinct)]
+                  );
+              } else {
+                svg
+                  .selectAll("mybar")
+                  .data(new_data)
+                  .enter()
+                  .append("rect")
+                  .attr("x", (d) => 1)
+                  .attr("y", (d) => x(d.precinct))
+                  .attr("width", (d) => y(d.value))
+                  .attr("height", x.bandwidth())
+                  .attr(
+                    "fill",
+                    (d) => precinctColor[precinctToIndex(d.precinct)]
+                  );
+              }
+            }
+
+            if (currX === "precinct" || currX === "borough") {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(
+                  `${capitalize(
+                    "Number of " + (currY.length > 3 ? currY : rankMap[currY])
+                  )} grouped by ${capitalize(currX)}`.replace(
+                    "Summoned For",
+                    "Summons"
+                  )
+                );
+            } else if (currX.startsWith("All")) {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(`NYC: ${capitalize(currX)}`);
+            } else if (scatter) {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(
+                  `Scattering: ${capitalize(currX)} Vs. ${capitalize(currY)}`
+                );
+            }
+
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX))
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              )
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
+          } else if (
+            columnTypes[currX] == "categorical" &&
+            columnTypes[currY] == "categorical"
+          ) {
+            // Clear previous visualization
+            viz.innerHTML = "";
+
+            // Append SVG to #viz
+            const svg = initializeSvg(width, height, margin, "#viz");
+
+            // Get unique categories for x and y axes
+            const xCategories = Array.from(new Set(data.map((d) => d[currX])));
+            const yCategories = Array.from(new Set(data.map((d) => d[currY])));
+
+            // Create scales for categorical axes using scaleBand
+            const xScale = d3
+              .scaleBand()
+              .domain(xCategories)
+              .range([0, width])
+              .padding(0.1);
+
+            const yScale = d3
+              .scaleBand()
+              .domain(yCategories)
+              .range([height, 0])
+              .padding(0.1);
+
+            // Append axes
+            svg
+              .append("g")
+              .attr("transform", `translate(0, ${height})`)
+              .call(d3.axisBottom(xScale));
+
+            svg.append("g").call(d3.axisLeft(yScale));
+
+            // Define jitter ranges based on the bandwidth of the scales
+            const jitterX = xScale.bandwidth();
+            const jitterY = yScale.bandwidth();
+
+            // Draw scatter points with jitter
+            svg
+              .selectAll("circle")
+              .data(data)
+              .enter()
+              .append("circle")
+              .attr("cx", (d) => {
+                // Center of the band plus a random offset within ±40% of the bandwidth
+                return (
+                  xScale(d[currX]) +
+                  xScale.bandwidth() / 2 +
+                  (Math.random() - 0.5) * jitterX * 0.8
+                );
+              })
+              .attr("cy", (d) => {
+                return (
+                  yScale(d[currY]) +
+                  yScale.bandwidth() / 2 +
+                  (Math.random() - 0.5) * jitterY * 0.8
+                );
+              })
+              .attr("r", 4)
+              .attr("fill", (d) => precinctColor[precinctToIndex(d[currX])]); // Adjust coloring as needed
+
+            // Add a title to the scatter plot
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", 0 - margin.top / 2)
+              .attr("text-anchor", "middle")
+              .style("font-size", "16px")
+              .style("text-decoration", "underline")
+              .style("color", "var(--primary-foreground)")
+              .text(
+                `Scatter Plot of ${capitalize(currY)} vs ${capitalize(currX)}`
+              );
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX))
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              // .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+          } else {
+            console.log("here");
+            // Clear previous visualization
+            viz.innerHTML = "";
+
+            // Append the SVG container to #viz
+
+            const svg = initializeSvg(width, height, margin, "#viz");
+            const xValues = data.map((d) => +d[currX]);
+            const yValues = data.map((d) => +d[currY]);
+
+            // Create x and y scales using the extent of the data.
+            const xScale = d3
+              .scaleLinear()
+              .domain(d3.extent(xValues))
+              .nice()
+              .range([0, width]);
+
+            const yScale = d3
+              .scaleLinear()
+              .domain(d3.extent(yValues))
+              .nice()
+              .range([height, 0]);
+
+            // Append x-axis at the bottom.
+            svg
+              .append("g")
+              .attr("transform", `translate(0, ${height})`)
+              .call(d3.axisBottom(xScale));
+
+            // Append y-axis on the left.
+            svg.append("g").call(d3.axisLeft(yScale));
+
+            // Plot circles for each data point.
+            svg
+              .selectAll("circle")
+              .data(data)
+              .enter()
+              .append("circle")
+              .attr("cx", (d) => xScale(+d[currX]))
+              .attr("cy", (d) => yScale(+d[currY]))
+              .attr("r", 4)
+              .attr("fill", (d) => "steelblue");
+
+            // Add a title to the scatter plot.
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", 0 - margin.top / 2)
+              .attr("text-anchor", "middle")
+              .style("font-size", "16px")
+              .style("text-decoration", "underline")
+              .text(
+                `Scatter Plot of ${capitalize(currY)} vs ${capitalize(currX)}`
+              );
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX));
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              );
+          }
+          if (!swap) {
+            svg
+              .append("text")
+              .attr("x", width / 2)
+              .attr("y", height + margin.bottom - 10)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(capitalize(currX))
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
+
+            // Add label for the y-axis.
+            svg
+              .append("text")
+              .attr("transform", "rotate(-90)")
+              .attr("x", -height / 2)
+              .attr("y", -margin.left + 20)
+              .attr("text-anchor", "middle")
+              .style("font-size", "12px")
+              .text(
+                capitalize(
+                  currY === "histogram" ? "Number of Precincts" : currY
+                )
+              )
+              .attr(
+                "transform",
+                currX === "precinct" ? "rotate(-90)" : "rotate(-45)"
+              );
+          }
+        } else {
+          if (direction === "horizontal") {
+            const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+            const width = 800 - margin.left - margin.right;
+            const height = 650 - margin.top - margin.bottom;
+            viz.innerHTML = "";
+
+            const svg = initializeSvg(width, height, margin, "#viz");
+
+            // If the horizontal dimension is a histogram, then the numeric values are taken from currY.
+            if (currY === "histogram") {
+              // Extract numeric values from currY
+              const values = data.map((row) => +row[currX]);
+
+              // Compute the extent of the data.
+              let [min, max] = d3.extent(values);
+              if (min === max) {
+                min = min - 1;
+                max = max + 1;
+              }
+
+              // Define the number of bins and compute equally spaced thresholds.
+              const numBins = 20;
+              const binWidth = (max - min) / numBins;
+              const thresholds = d3.range(min, max, binWidth);
+
+              // Generate histogram bins using the numeric domain.
+              const histogramGenerator = d3
+                .histogram()
+                .domain([min, max])
+                .thresholds(thresholds);
+              const bins = histogramGenerator(values);
+              // Create an x-scale for frequency counts.
+              let x = d3
+                .scaleLinear()
+                .domain([0, d3.max(bins, (d) => d.length)])
+                .range([0, width])
+                .nice();
+
+              // Create a y-scale mapping the numeric domain to vertical positions.
+              let y = d3
+                .scaleLinear()
+                .domain([min, max])
+                .range([height, 0])
+                .nice();
+
+              // Add the x-axis (frequency) at the bottom.
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x));
+
+              // Add the y-axis (numeric values) on the left.
+              svg.append("g").call(d3.axisLeft(y));
+
+              // Draw horizontal bars for each bin.
+              svg
+                .selectAll("rect")
+                .data(bins)
+                .enter()
+                .append("rect")
+                // Bars start at x=0, and their width corresponds to the bin count.
+                .attr("x", 0)
+                // Use d.x1 for the top of the bar, so that the bar spans from d.x1 (top) to d.x0 (bottom).
+                .attr("y", (d) => y(d.x1))
+                .attr("height", (d) => Math.max(0, y(d.x0) - y(d.x1) - 1))
+                .attr("width", (d) => x(d.length))
+                .attr("fill", "steelblue");
+
+              // Add a title to the histogram.
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", 0 - margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .style("fill", "hsl(var(--foreground))")
+                .text(`Histogram of ${capitalize(currX)}`);
+            } else {
+              // Otherwise, implement the standard horizontal bar chart.
+              let new_data = [];
+              let maxValue = 0; // Maximum numeric value for scaling.
+
+              if (currX === "borough") {
+                let boroughMap = new Map();
+                const cols = x_dict[currY] || currY;
+                for (const row of data) {
+                  let tot = 0;
+                  for (const i of cols) {
+                    tot += row[i];
+                  }
+                  let boroughName = row[currX];
+                  boroughMap.set(
+                    boroughName,
+                    (boroughMap.get(boroughName) || 0) + tot
+                  );
+                  maxValue = Math.max(maxValue, boroughMap.get(boroughName));
+                }
+                new_data = Array.from(boroughMap, ([precinct, value]) => ({
+                  precinct,
+                  value,
+                }));
+              } else {
+                if (currX.startsWith("All")) {
+                  const other_cols = x_dict[currX];
+                  let columnTotals = new Map();
+                  for (const col of other_cols) {
+                    columnTotals.set(col, 0);
+                  }
+                  for (const row of data) {
+                    for (const col of other_cols) {
+                      columnTotals.set(col, columnTotals.get(col) + row[col]);
+                    }
+                  }
+                  new_data = Array.from(columnTotals, ([col, value]) => ({
+                    precinct: col.split("_").pop(),
+                    value: value,
+                  }));
+                  maxValue = Math.max(...columnTotals.values());
+                } else {
+                  const cols = x_dict[currY] || currY;
+                  for (const row of data) {
+                    let tot = 0;
+                    for (const i of cols) {
+                      tot += row[i];
+                    }
+                    new_data.push({ precinct: row[currX], value: tot });
+                    maxValue = Math.max(maxValue, tot);
+                  }
+                }
+              }
+
+              // Sort data in descending order.
+              new_data = new_data.sort((a, b) => b.value - a.value);
+
+              // Create a y-scale for categorical labels.
+              let y = d3
+                .scaleBand()
+                .domain(new_data.map((d) => d.precinct))
+                .range([0, height])
+                .padding(0.2);
+
+              // Create an x-scale for numeric values.
+              let x = d3.scaleLinear().domain([0, maxValue]).range([0, width]);
+
+              // Append the x-axis at the bottom.
+              svg
+                .append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x));
+
+              // Append the y-axis on the left.
+              svg.append("g").call(d3.axisLeft(y));
+
+              // Draw horizontal bars.
+              svg
+                .selectAll("rect")
+                .data(new_data)
+                .enter()
+                .append("rect")
+                .attr("y", (d) => y(d.precinct))
+                .attr("x", 0)
+                .attr("height", y.bandwidth())
+                .attr("width", (d) => x(d.value))
+                .attr(
+                  "fill",
+                  (d) => precinctColor[precinctToIndex(d.precinct)]
+                );
+
+              // Add a title for the chart.
+              if (currX === "precinct" || currX === "borough") {
+                svg
+                  .append("text")
+                  .attr("x", width / 2)
+                  .attr("y", 0 - margin.top / 2)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "16px")
+                  .style("text-decoration", "underline")
+                  .style("color", "var(--primary-foreground)")
+                  .text(
+                    `${capitalize(
+                      "Number of " + (currY.length > 3 ? currY : rankMap[currY])
+                    )} grouped by ${capitalize(currX)}`.replace(
+                      "Summoned For",
+                      "Summons"
+                    )
+                  );
+              } else if (currX.startsWith("All")) {
+                svg
+                  .append("text")
+                  .attr("x", width / 2)
+                  .attr("y", 0 - margin.top / 2)
+                  .attr("text-anchor", "middle")
+                  .style("font-size", "16px")
+                  .style("text-decoration", "underline")
+                  .style("color", "var(--primary-foreground)")
+                  .text(`NYC: ${capitalize(currX)}`);
+              }
+            }
+            if (currX.startsWith("All")) {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text("Count");
+              svg
+                .append("text")
+                .attr("x", -height / 2)
+                .attr("y", -margin.left + 20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text(currX);
+            } else {
+              svg
+                .append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text(
+                  capitalize(
+                    currY === "histogram" ? "Number of Precincts" : currY
+                  )
+                );
+
+              // Add label for the y-axis.
+              svg
+                .append("text")
+                // .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", -margin.left + 20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "12px")
+                .text(
+                  capitalize(
+                    currX === "histogram" ? "Number of Precincts" : currX
+                  )
+                );
+            }
+          }
+        }
+      }
+      const categorical = ["sgt", "po", "det"];
+      let pc1 = 0;
+      let pc2 = 1;
+      addListeners();
+      let timer, lastBar, highlightedPoint;
+      const response = await fetch("http://18.209.163.81/scree-data").then(
+        (data) => data.json()
+      );
+      const scree_data = response["ratios"];
+      const di = response["di"];
+      addScreePlot();
+      function addScreePlot() {
+        const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+        const width = 800 - margin.left - margin.right;
+        const height = 650 - margin.top - margin.bottom;
+        const svg = initializeSvg(width, height, margin, "#scree");
+        const pcaData = precinctify(scree_data);
+        const cumulativeData = pcaData.map((d, i) => ({
+          category: d.precinct,
+          cumulativeValue: d3.sum(
+            pcaData.slice(0, i + 1),
+            (item) => item.value
+          ),
+        }));
+        let { x, y } = createScales(
+          pcaData,
+          width,
+          height,
+          1,
+          "categorical",
+          "numerical",
+          false,
+          true
+        );
+        addXAxis(svg, x, pcaData, height, true);
+        addYAxis(svg, y, true);
+        addXText(svg, width, height, margin, "Components", false);
+        addTitle(
+          svg,
+          width,
+          margin,
+          "",
+          "",
+          "",
+          "Scree Plot,suppressed <1% PC"
+        );
+        addYText(svg, height, margin, "Variance Explained (%)", "Components");
+        svg
+          .selectAll("bar")
+          .data(pcaData)
+          .enter()
+          .append("rect")
+          .attr("x", (d) => x(d.precinct))
+          .attr("y", (d) => y(d.value))
+          .attr("id", (d, i) => `PC${i}`)
+          .attr("width", x.bandwidth())
+          .attr("height", (d) => height - y(d.value))
+          .on("contextmenu", function (event, d) {
+            // Prevent the default context menu
+            event.preventDefault();
+            const index = parseStringToInt(d.precinct) - 1;
+
+            // Get mouse position
+            const mouseX = event.pageX;
+            const mouseY = event.pageY;
+
+            // Remove any existing context menus
+            d3.select("#contextMenu").remove();
+
+            // Create context menu
+            const contextMenu = d3
+              .select("body")
+              .append("div")
+              .attr("id", "contextMenu")
+              .style("position", "absolute")
+              .style("left", mouseX + "px")
+              .style("top", mouseY + "px")
+              .style("background-color", "white")
+              .style("border", "1px solid black")
+              .style("border-radius", "4px")
+              .style("padding", "5px")
+              .style("box-shadow", "2px 2px 5px rgba(0,0,0,0.2)")
+              .style("z-index", "1000");
+
+            // Add option X to context menu
+            contextMenu
+              .append("div")
+              .text("Option X")
+              .style("padding", "5px 10px")
+              .style("cursor", "pointer")
+              .on("click", function () {
+                if (pc1 !== null) {
+                  svg
+                    .selectAll(".x-text")
+                    .filter((d, i) => i === pc1)
+                    .style("fill", "hsl(var(--foreground))"); // Reset to default color
+                }
+
+                // Execute function for Option X
+                // executeOptionX(d);
+                pc1 = index;
+                svg
+                  .selectAll(".x-text")
+                  .filter((d, i) => i === pc1)
+                  .style("fill", "hsl(var(--primary))");
+
+                updatePlots();
+                // Remove context menu
+                contextMenu.remove();
+              });
+
+            // Add option Y to context menu
+            contextMenu
+              .append("div")
+              .text("Option Y")
+              .style("padding", "5px 10px")
+              .style("cursor", "pointer")
+              .on("click", function () {
+                svg
+                  .selectAll(".x-text")
+                  .filter((d, i) => i === pc2)
+                  .style("fill", "hsl(var(--foreground))"); // Reset to default color
+
+                pc2 = index;
+                svg
+                  .selectAll(".x-text")
+                  .filter((d, i) => i === pc2)
+                  .style("fill", "hsl(var(--primary))");
+
+                updatePlots();
+                // Remove context menu
+                contextMenu.remove();
+              });
+
+            // Close the context menu when clicking elsewhere
+            d3.select("body").on("click", function () {
+              contextMenu.remove();
+            });
+          })
+          .on("click", function (s, i) {
+            const index = parseStringToInt(i.precinct);
+            if (lastBar) addSignificancePlot(index + 1, kmeans, theK - 1);
+
+            // Remove highlight from previous bar if exists
+            if (lastBar && lastBar.x > s.x) {
+              d3.select(lastBar)
+                .classed("highlighted", false)
+                .style("fill", "hsl(var(--foreground))");
+            }
+
+            // Highlight current bar
+            d3.select(this)
+              .classed("highlighted", true)
+              .style("fill", "hsl(var(--primary))");
+
+            // Remember this as highlighted bar
+            lastBar = this;
+            highlightPoint(index);
+          })
+          .on("mouseenter", function (s, i) {
+            const yValue = y(s.value);
+            const index = parseStringToInt(i.precinct);
+            if (timer) {
+              clearTimeout(timer);
+            }
+
+            highlightPoint(index);
+            svg
+              .selectAll("rect")
+              .filter(`:nth-child(-n+${index + 5})`)
+              .nodes()
+              .reverse()
+              .forEach((node, i) => {
+                d3.select(node)
+                  .transition()
+                  .delay(i * 30) // Apply delay in reverse order
+                  .style("fill", "hsl(var(--primary))")
+                  .attr("x", (a) => x(a.precinct) - 5)
+                  .attr("width", x.bandwidth() + 5);
+              });
+            svg
+              .selectAll("rect")
+              .filter(`:nth-child(n+${index + 6})`)
+              .nodes()
+              .reverse()
+              .forEach((node, i) => {
+                d3.select(node)
+                  .transition()
+                  .delay(i * 5) // Apply delay in reverse order
+                  .style("fill", "hsl(var(--foreground))")
+                  .attr("x", (a) => x(a.precinct))
+                  .attr("width", x.bandwidth());
+              });
+          })
+          .on("mouseleave", function (s, i) {
+            if (d3.select(this).attr("class") != "highlighted") {
+              d3.selectAll(".highlight").remove();
+            } else {
+              svg.selectAll(".highlight").remove();
+              // d3.select(highlightedPoint).classed("highlight", true);
+            }
+            const index = parseStringToInt(i.precinct);
+            if (timer) {
+              clearTimeout(timer);
+            }
+
+            // lastBar = index;
+            timer = setTimeout(() => {
+              // Reset all non-highlighted bars to default
+              svg.selectAll("rect").each(function () {
+                // Don't modify the highlighted bar
+                if (this !== lastBar) {
+                  d3.select(this)
+                    .transition()
+                    .style("fill", "hsl(var(--foreground))")
+                    .attr("x", (d) => x(d.precinct))
+                    .attr("width", x.bandwidth());
+                }
+              });
+
+              // Ensure highlighted bar keeps its color
+              if (lastBar) {
+                const highlightedIndex = parseStringToInt(
+                  d3.select(lastBar).data()[0].precinct
+                );
+                d3.select(lastBar)
+                  .style("fill", "hsl(var(--primary))")
+                  .attr("x", (d) => x(d.precinct))
+                  .attr("width", x.bandwidth());
+                highlightPoint(highlightedIndex);
+              }
+            }, 50);
+          });
+
+        // Create line generator
+        const line = d3
+          .line()
+          .x((d) => x(d.category) + x.bandwidth() / 2)
+          .y((d) => y(d.cumulativeValue));
+
+        // Draw cumulative line
+        svg
+          .append("path")
+          .datum(cumulativeData)
+          .attr("fill", "none")
+          .attr("stroke", "hsl(var(--primary))")
+          .attr("stroke-width", 2)
+          .attr("d", line);
+
+        function highlightPoint(dataIndex) {
+          const dataPoint = cumulativeData[dataIndex - 1];
+          const total = cumulativeData[cumulativeData.length - 1];
+
+          // Calculate the exact position using your line generator's accessors
+          const pointX = x(dataPoint.category) + x.bandwidth() / 2;
+          const pointY = y(dataPoint.cumulativeValue);
+
+          // Remove any existing highlight
+          // svg.selectAll(".highlight").remove();
+
+          // Add a highlight circle
+          svg
+            .append("circle")
+            .attr("cx", pointX)
+            .attr("cy", pointY)
+            .attr("r", 5)
+            .attr("fill", "hsl(var(--primary-foreground))")
+            .attr("class", "highlight")
+            .attr("stroke", "hsl(var(--primary))")
+            .attr("stroke-width", 2);
+
+          svg
+            .append("text")
+            .attr("x", pointX)
+            .attr("y", pointY - 10)
+            .attr("text-anchor", "middle")
+            .attr("class", "highlight")
+            .text(
+              `${(
+                (dataPoint.cumulativeValue / total.cumulativeValue) *
+                100
+              ).toFixed(2)}%`
+            );
+          svg
+            .selectAll(".x-text")
+            .filter((d, i) => i === pc1 || i === pc2)
+            .style("fill", "hsl(var(--primary))");
+        }
+      }
+      function precinctify(data) {
+        return data.map((d, i) => {
+          return { precinct: `PC ${i + 1}`, value: d };
+        });
+      }
+      const cluster_color = d3.scaleOrdinal(d3.schemeCategory10);
+      function mse_ify(data, pre = "K", post = "mse") {
+        return data.map((d, i) => {
+          return { precinct: `${d[pre]}`, value: d[post] };
+        });
+      }
+      function parseStringToInt(str) {
+        // Use regex to extract digits
+        const matches = str.match(/\d+/);
+        if (matches) {
+          return parseInt(matches[0], 10);
+        }
+        return null; // or a default value
+      }
+
+      const event = new Event("click");
+
+      let biplot_data = await fetch(
+        "http://18.209.163.81/bi-plot?p1=0&p2=1"
+      ).then((data) => data.json());
+      let significance_data;
+
+      let init = true;
+
+      function addMSEPlot() {
+        const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+        const width = 800 - margin.left - margin.right;
+        const height = 650 - margin.top - margin.bottom;
+        const svg = initializeSvg(width, height, margin, "#mse");
+        const pcaData = mse_ify(kmeans["mse"].sort((a, b) => b.mse - a.mse));
+        console.log(kmeans["mse"]);
+        console.log(pcaData);
+
+        let { x, y } = createScales(
+          pcaData,
+          width,
+          height,
+          pcaData.reduce(
+            (acc, curr) => (acc > curr.value ? acc : curr.value),
+            0
+          ),
+          "categorical",
+          "numerical",
+          false,
+          false
+        );
+
+        addXAxis(svg, x, pcaData, height, false);
+        addYAxis(svg, y, false);
+        addXText(svg, width, height, margin, "Number of Clusters (k)", false);
+        addTitle(svg, width, margin, "", "", "", "MSE vs Number of clusters");
+        addYText(svg, height, margin, "Mean squared error", "Components");
+
+        // Track the currently highlighted bar
+        let highlightedBar = null;
+
+        svg
+          .selectAll("bar")
+          .data(pcaData)
+          .enter()
+          .append("rect")
+          .attr("x", (d) => x(d.precinct))
+          .attr("y", (d) => y(d.value))
+          .attr("id", (d, i) => `K-${i}`)
+          .attr("width", x.bandwidth())
+          .attr("height", (d) => height - y(d.value))
+          .style("fill", "hsl(var(--foreground))") // Default color
+          .on("click", function (s, i) {
+            const index = parseStringToInt(i.precinct);
+            theK = index;
+
+            // Remove highlight from previous bar if exists
+            if (
+              (highlightedBar && highlightedBar.x > s.x) ||
+              (highlightedBar && init)
+            ) {
+              d3.select(highlightedBar)
+                .classed("highlighted", false)
+                .style("fill", "hsl(var(--foreground))");
+
+              if (highlightedBar && init) {
+                init = false;
+              }
+            }
+            addSignificancePlot(di + 1, kmeans, theK - 1, true);
+            addFilter();
+            // Usage
+            // highlightPoint(3); // Highlight the 4th data point
+            // addScatterMatrix(
+            //   significance_data.map((i) => i["feature"]),
+            //   significance_data,
+            //   k - 1
+            // );
+            // Highlight current bar
+            d3.select(this)
+              .classed("highlighted", true)
+              .style("fill", cluster_color(index));
+            addBiplot(index - 1);
+            // Remember this as highlighted bar
+            highlightedBar = this;
+            updatePlotsDependentOnK(theK);
+          })
+          .on("mouseenter", function (s, i) {
+            const index = parseStringToInt(i.precinct);
+            if (timer) {
+              clearTimeout(timer);
+            }
+            if (highlightedBar) {
+              const highlightedIndex = parseStringToInt(
+                d3.select(highlightedBar).data()[0].precinct
+              );
+              d3.select(highlightedBar).style(
+                "fill",
+                cluster_color(highlightedIndex)
+              );
+            }
+            // Apply hover effect to bars up to this index
+            svg.selectAll("rect").each(function (d, j) {
+              const barIndex = parseStringToInt(d.precinct);
+              if (barIndex <= index) {
+                // Skip the highlighted bar - keep its color consistent
+                // if (this !== highlightedBar) {
+                d3.select(this)
+                  .transition()
+                  .delay(barIndex * 30)
+                  .style("fill", cluster_color(barIndex))
+                  .attr("x", x(d.precinct) - 5)
+                  .attr("width", x.bandwidth() + 5);
+                // }
+              } else {
+                d3.select(this)
+                  .transition()
+                  .delay((barIndex - index) * 5)
+                  .style("fill", "hsl(var(--foreground))")
+                  .attr("x", x(d.precinct))
+                  .attr("width", x.bandwidth());
+              }
+            });
+          })
+          .on("mouseleave", function (s, i) {
+            const index = parseStringToInt(i.precinct);
+            if (highlightedBar) {
+              const highlightedIndex = parseStringToInt(
+                d3.select(highlightedBar).data()[0].precinct
+              );
+              d3.select(highlightedBar).style(
+                "fill",
+                cluster_color(highlightedIndex)
+              );
+            }
+
+            if (timer) {
+              clearTimeout(timer);
+            }
+
+            // lastBar = index;
+            timer = setTimeout(() => {
+              // Reset all non-highlighted bars to default
+              svg.selectAll("rect").each(function () {
+                // Don't modify the highlighted bar
+                if (this !== highlightedBar) {
+                  d3.select(this)
+                    .transition()
+                    .style("fill", "hsl(var(--foreground))")
+                    .attr("x", (d) => x(d.precinct))
+                    .attr("width", x.bandwidth());
+                }
+              });
+
+              // Ensure highlighted bar keeps its color
+              if (highlightedBar) {
+                const highlightedIndex = parseStringToInt(
+                  d3.select(highlightedBar).data()[0].precinct
+                );
+                d3.select(highlightedBar)
+                  .style("fill", cluster_color(highlightedIndex))
+                  .attr("x", (d) => x(d.precinct))
+                  .attr("width", x.bandwidth());
+              }
+            }, 50);
+          });
+      }
+
+      function addBiplot(k) {
+        const margin = { top: 50, right: 120, bottom: 80, left: 120 };
+        const width = 800 - margin.left - margin.right;
+        const height = 650 - margin.top - margin.bottom;
+
+        // Clear any existing SVG
+        d3.select("#biplot").html("");
+
+        // Create SVG
+        const svg = initializeSvg(width, height, margin, "#biplot", "100vh");
+
+        // Extract data from the biplot_data structure for vectors
+        const {
+          x: xLoadings,
+          y: yLoadings,
+          features,
+          projected_x,
+          projected_y,
+        } = biplot_data;
+
+        // Extract data from kmeans result for points
+        const kmeansData = kmeans;
+        const pointsX = projected_x;
+        const pointsY = projected_y;
+        const elbowK = k;
+        const clusterLabels = kmeansData.labels[elbowK]; // Elbow point clusters (0-indexed)
+
+        // Find the maximum absolute value for both x and y axes
+        // Consider both loadings and data points
+        const allX = [...xLoadings, ...pointsX];
+        const allY = [...yLoadings, ...pointsY];
+        const maxAbsX =
+          Math.max(Math.abs(d3.min(allX)), Math.abs(d3.max(allX))) * 1.2;
+        const maxAbsY =
+          Math.max(Math.abs(d3.min(allY)), Math.abs(d3.max(allY))) * 1.2;
+
+        // Create scales for x and y axes
+        const xScale = d3
+          .scaleLinear()
+          .domain([-maxAbsX, maxAbsX])
+          .range([0, width]);
+
+        const yScale = d3
+          .scaleLinear()
+          .domain([-maxAbsY, maxAbsY])
+          .range([height, 0]);
+
+        // Create color scale for clusters
+        const numClusters = Math.max(...clusterLabels) + 1;
+        const colorScale = d3
+          .scaleOrdinal(d3.schemeCategory10)
+          .domain(d3.range(numClusters));
+
+        // Create and add X and Y axes with origin at center
+        const xAxis = d3.axisBottom(xScale).tickSizeOuter(0);
+        const yAxis = d3.axisLeft(yScale).tickSizeOuter(0);
+
+        // Add X axis
+        svg
+          .append("g")
+          .attr("class", "x-axis")
+          .attr("transform", `translate(0,${yScale(0)})`)
+          .call(xAxis);
+
+        // Add Y axis
+        svg
+          .append("g")
+          .attr("class", "y-axis")
+          .attr("transform", `translate(${xScale(0)},0)`)
+          .call(yAxis);
+
+        // Add axis labels
+        // X-axis label
+        svg
+          .append("text")
+          .attr("class", "x-label")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", height + margin.bottom / 2)
+          .style("fill", "hsl(var(--foreground))")
+          .text(`Principal Component ${pc1 + 1}`);
+
+        // Y-axis label
+        svg
+          .append("text")
+          .attr("class", "y-label")
+          .attr("text-anchor", "middle")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -height / 2)
+          .attr("y", -margin.left / 1.5)
+          .style("fill", "hsl(var(--foreground))")
+          .text(`Principal Component ${pc2 + 1}`);
+
+        // Add title with elbow point info
+        svg
+          .append("text")
+          .attr("class", "title")
+          .attr("x", width / 2)
+          .attr("y", -margin.top / 2)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "18px")
+          .attr("font-weight", "bold")
+          .style("fill", "hsl(var(--foreground))")
+          .text(`PCA Biplot with K-means Clusters (k=${elbowK + 1})`);
+
+        // Create a group for the data points
+        svg
+          .append("g")
+          .attr("class", "data-points")
+          .selectAll("circle")
+          .data(
+            pointsX.map((x, i) => ({
+              x: x,
+              y: pointsY[i],
+              cluster: clusterLabels[i],
+            }))
+          )
+          .enter()
+          .append("circle")
+          .attr("cx", (d) => xScale(d.x))
+          .attr("cy", (d) => yScale(d.y))
+          .attr("r", 3)
+          .attr("fill", (d) => colorScale(d.cluster))
+          .attr("opacity", 0.7)
+          .attr("stroke", "hsl(var(--foreground))")
+          .attr("stroke-width", 0.5);
+
+        // Add arrow marker definition for the vectors
+        svg
+          .append("defs")
+          .append("marker")
+          .attr("id", "arrow")
+          .attr("viewBox", "0 -5 10 10")
+          .attr("refX", 8)
+          .attr("refY", 0)
+          .attr("markerWidth", 6)
+          .attr("markerHeight", 6)
+          .attr("orient", "auto")
+          .append("path")
+          .attr("d", "M0,-5L10,0L0,5")
+          .attr("fill", "hsl(var(--foreground))");
+
+        // Calculate the origin point
+        const originX = xScale(0);
+        const originY = yScale(0);
+
+        // Create tooltip div
+        // Add a tooltip
+        const tooltip = d3
+          .select("body")
+          .append("div")
+          .attr("class", "tooltip")
+          .style("position", "absolute")
+          .style("background", "rgba(255,255,255,0.9)")
+          .style("border", "1px solid #ddd")
+          .style("border-radius", "3px")
+          .style("padding", "8px")
+          .style("color", "hsl(var(--foreground))")
+          .style("pointer-events", "none")
+          .style("opacity", 0);
+
+        // Add vectors (loadings) from the origin
+        if (features && features.length > 0) {
+          // Create a group for each vector and endpoint
+          const vectorGroups = svg
+            .selectAll(".vector-group")
+            .data(
+              features.map((f, i) => ({
+                name: Array.isArray(f) ? f.join(" + ") : f,
+                x: xLoadings[i],
+                y: yLoadings[i],
+              }))
+            )
+            .enter()
+            .append("g")
+            .attr("class", "vector-group");
+
+          // Add the vector lines
+          vectorGroups
+            .append("line")
+            .attr("x1", originX)
+            .attr("y1", originY)
+            .attr("x2", (d) => xScale(d.x))
+            .attr("y2", (d) => yScale(d.y))
+            .attr("stroke", "hsl(var(--muted))")
+            .attr("opacity", 0.5)
+            .attr("stroke-width", 1.5)
+            .attr("marker-end", "url(#arrow)");
+
+          // Add endpoint circles with interaction
+          vectorGroups
+            .append("circle")
+            .attr("cx", (d) => xScale(d.x))
+            .attr("cy", (d) => yScale(d.y))
+            .attr("r", 3)
+            .attr("fill", "hsl(var(--muted))")
+            .attr("opacity", 0.7)
+            .attr("stroke", "hsl(var(--muted-foreground))")
+            .attr("stroke-width", 0.5)
+            .attr("cursor", "pointer")
+            .on("mouseover", function (event, d) {
+              d3.select(this).attr("r", 6).attr("opacity", 1);
+              console.log(window.scrollY);
+
+              // Show tooltip
+              tooltip.transition().duration(200).style("opacity", 0.9);
+              tooltip
+                .style("visibility", "visible")
+                .html(d.name)
+                .style("left", event.pageX + 10 + "px")
+                .style("top", event.pageY - 28 - window.scrollY + "px");
+
+              // Position tooltip based on mouse position
+              // updateTooltipPosition(event);
+            })
+            .on("mousemove", updateTooltipPosition)
+            .on("mouseout", function () {
+              d3.select(this).attr("r", 3).attr("opacity", 0.7);
+              tooltip.style("visibility", "hidden");
+            });
+        }
+
+        // Function to update tooltip position
+        function updateTooltipPosition(event) {
+          tooltip
+            .style("left", event.pageX + "px")
+            .style("top", event.pageY + 10 + "px");
+        }
+
+        // Add origin marker
+        svg
+          .append("circle")
+          .attr("cx", originX)
+          .attr("cy", originY)
+          .attr("r", 4)
+          .style("fill", "hsl(var(--foreground))");
+        // .attr("fill", "black");
+
+        // Add legend for clusters
+        const legendSize = 15;
+        const legendSpacing = 5;
+        const legendGroup = svg
+          .append("g")
+          .attr("class", "legend")
+          .attr("transform", `translate(${width - 120}, 20)`);
+
+        legendGroup
+          .append("text")
+          .attr("x", 0)
+          .attr("y", -10)
+          .attr("font-size", "12px")
+          .attr("font-weight", "bold")
+          .text(`Clusters (k=${elbowK + 1})`)
+          .style("fill", "hsl(var(--foreground))");
+
+        const legend = legendGroup
+          .selectAll(".legend-item")
+          .data(d3.range(numClusters))
+          .enter()
+          .append("g")
+          .attr("class", "legend-item")
+          .attr(
+            "transform",
+            (d, i) => `translate(0, ${i * (legendSize + legendSpacing)})`
+          );
+
+        legend
+          .append("rect")
+          .attr("width", legendSize)
+          .attr("height", legendSize)
+          .attr("fill", (d) => colorScale(d));
+
+        legend
+          .append("text")
+          .attr("x", legendSize + legendSpacing)
+          .attr("y", legendSize - 3)
+          .attr("font-size", "12px")
+          .style("fill", "hsl(var(--foreground))")
+          .text((d) => `Cluster ${d + 1}`);
+      }
+      async function addSignificancePlot(di, kmeans, k, ignore = false) {
+        const margin = { top: 50, right: 20, bottom: 100, left: 100 };
+        const width = 800 - margin.left - margin.right;
+        const height = 650 - margin.top - margin.bottom;
+
+        // console.log("km", kmeans["labels"][k]);
+        significance_data = await fetch(
+          `http://18.209.163.81/significance?di=${di}`
+        ).then((data) => data.json());
+        for (let i = 0; i < significance_data.length; i++) {
+          for (let j = 0; j < significance_data[0]["scatter"].length; j++) {
+            significance_data[i]["scatter"][j] = {
+              value: significance_data[i]["scatter"][j],
+              cluster: kmeans["labels"][k][j],
+            };
+          }
+        }
+        addScatterMatrix(
+          significance_data.map((i) => i["feature"]),
+          significance_data,
+          k - 1
+        );
+        if (ignore) {
+          return;
+        }
+        document.querySelector("#significance").innerHTML = "";
+
+        const svg = initializeSvg(width, height, margin, "#significance");
+
+        const pcaData = mse_ify(significance_data, "feature", "value");
+
+        let { x, y } = createScales(
+          pcaData,
+          width,
+          height,
+          pcaData.reduce(
+            (acc, curr) => (acc > curr.value ? acc : curr.value),
+            0
+          ),
+          "categorical",
+          "numerical",
+          false,
+          false
+        );
+        const xAxis = d3.axisBottom().scale(x);
+        svg
+          .append("g")
+          .attr("class", "x axis")
+          .attr("transform", "translate(0," + height + ")")
+          .transition()
+          .call(xAxis)
+          .on("end", function () {
+            d3.select(this).selectAll(".tick text").call(wrap, x.bandwidth());
+          });
+
+        addYAxis(svg, y, false);
+        addXText(svg, width, height, margin, "Features", false);
+        addTitle(
+          svg,
+          width,
+          margin,
+          "",
+          "",
+          "",
+          `Top 4 features based on Di=${di}`
+        );
+        addYText(svg, height, margin, "Squared Loadings", "Features");
+
+        // Track the currently highlighted bar
+        let highlightedBar = null;
+
+        svg
+          .selectAll("bar")
+          .data(pcaData)
+          .enter()
+          .append("rect")
+          .attr("x", (d) => x(d.precinct))
+          .attr("y", (d) => y(d.value))
+          .attr("id", (d, i) => `K-${i}`)
+          .attr("width", x.bandwidth())
+          .attr("height", (d) => height - y(d.value))
+          .style("fill", "hsl(var(--foreground))"); // Default color
+      }
+
+      function wrap(textElements, width) {
+        textElements.each(function () {
+          var text = d3.select(this),
+            words = text.text().split(/\s+/).reverse(),
+            word,
+            line = [],
+            lineNumber = 0,
+            lineHeight = 1.1,
+            y = text.attr("y"),
+            dy = parseFloat(text.attr("dy")),
+            tspan = text
+              .text(null)
+              .append("tspan")
+              .attr("x", 0)
+              .attr("y", y)
+              .attr("dy", dy + "em");
+          while ((word = words.pop())) {
+            line.push(word);
+            tspan.text(line.join(" "));
+            if (tspan.node().getComputedTextLength() > width) {
+              line.pop();
+              tspan.text(line.join(" "));
+              line = [word];
+              tspan = text
+                .append("tspan")
+                .attr("x", 0)
+                .attr("y", y)
+                .attr("dy", ++lineNumber * lineHeight + dy + "em")
+                .text(word);
+            }
+          }
+        });
+      }
+
+      function type(d) {
+        d.value = +d.value;
+        return d;
+      }
+
+      function addScatterMatrix(features, data, k) {
+        // Specify the chart's dimensions.
+        const width = 928;
+        const height = width;
+        const padding = 28;
+        const margin = {
+          top: padding,
+          right: padding,
+          bottom: padding,
+          left: padding,
+        };
+        document.querySelector("#scatter-matrix").innerHTML = "";
+
+        const columns = features;
+        const size =
+          (width - (columns.length + 1) * padding) / columns.length + padding;
+
+        // Restructure data for easier access
+        const otherData = Array(data[0]["scatter"].length)
+          .fill()
+          .map(() => ({}));
+
+        for (let i = 0; i < features.length; i++) {
+          for (let j = 0; j < data[i]["scatter"].length; j++) {
+            otherData[j] = {
+              ...otherData[j],
+              [data[i]["feature"]]: {
+                value: data[i]["scatter"][j]["value"],
+              },
+            };
+          }
+        }
+
+        for (let j = 0; j < data[0]["scatter"].length; j++) {
+          otherData[j] = {
+            ...otherData[j],
+            cluster: data[0]["scatter"][j]["cluster"],
+          };
+        }
+
+        // Analyze data distribution and decide on scale type
+        const scaleTypes = {};
+        const columnStats = {};
+
+        columns.forEach((column) => {
+          const values = otherData.map((d) =>
+            d[column].value > 0 ? d[column].value : 0.1
+          );
+
+          if (values.length === 0) {
+            scaleTypes[column] = "linear"; // Default to linear if no valid values for log
+            return;
+          }
+
+          // Calculate stats
+          const min = d3.min(values);
+          const max = d3.max(values);
+          const ratio = max / min;
+          const mean = d3.mean(values);
+          const median = d3.median(values);
+          const meanMedianRatio = mean / median;
+
+          columnStats[column] = {
+            min,
+            max,
+            ratio,
+            mean,
+            median,
+            meanMediaanRatio: meanMedianRatio,
+          };
+
+          // Decision criteria for log scale:
+          // 1. Data spans multiple orders of magnitude (ratio > 100)
+          // 2. Data is significantly skewed (mean/median ratio > 2)
+          // 3. All values are positive (required for log scale)
+          // const allValuesPositive =
+          //   d3.min(otherData.map((d) => d[column].value)) > 0;
+          if (ratio > 100 || meanMedianRatio > 2) {
+            scaleTypes[column] = "log";
+          } else {
+            scaleTypes[column] = "linear";
+          }
+        });
+
+        // Create appropriate scales based on analysis
+        const x = columns.map((c) => {
+          const domain = d3.extent(otherData, (d) => d[c].value);
+
+          // Ensure positive domain for log scales
+          if (scaleTypes[c] === "log") {
+            // Handle zero or negative values by using a small positive number as the minimum
+            if (domain[0] <= 0) {
+              domain[0] =
+                Math.min(
+                  ...otherData.map((d) => d[c].value).filter((v) => v > 0)
+                ) / 10;
+            }
+            return d3
+              .scaleLog()
+              .domain(domain)
+              .rangeRound([padding / 2, size - padding / 2])
+              .nice();
+          } else {
+            return d3
+              .scaleLinear()
+              .domain(domain)
+              .rangeRound([padding / 2, size - padding / 2])
+              .nice();
+          }
+        });
+
+        // Define the companion vertical scales (one for each column).
+        const y = columns.map((c, i) => {
+          if (scaleTypes[c] === "log") {
+            const domain = x[i].domain();
+            return d3
+              .scaleLog()
+              .domain(domain)
+              .range([size - padding / 2, padding / 2])
+              .nice();
+          } else {
+            return x[i].copy().range([size - padding / 2, padding / 2]);
+          }
+        });
+
+        // Define the color scale.
+        const color = d3
+          .scaleOrdinal()
+          .domain(d3.range(k))
+          .range(d3.schemeCategory10);
+        const calculateTickCount = () => {
+          // Adjust based on cell size
+          if (size < 100) return 2;
+          if (size < 150) return 3;
+          return 4; // Default for larger cells
+        };
+        const tickCount = calculateTickCount();
+
+        // Configure axis with appropriate tick formatting for each scale type
+        const axisx = (scale, column) => {
+          const axis = d3
+            .axisBottom()
+            .scale(scale)
+            .tickSize(size * columns.length)
+            .ticks(tickCount);
+
+          if (scaleTypes[column] === "log") {
+            // For log scales, use fewer ticks with powers of 10
+            axis.ticks(tickCount, ".1g");
+          }
+
+          return axis;
+        };
+
+        const axisy = (scale, column) => {
+          const axis = d3
+            .axisLeft()
+            .scale(scale)
+            .tickSize(-size * columns.length)
+            .ticks(tickCount);
+
+          if (scaleTypes[column] === "log") {
+            // For log scales, use fewer ticks with powers of 10
+            axis.ticks(tickCount, ".1~g");
+          }
+
+          return axis;
+        };
+
+        // Define axis rendering functions
+        const xAxis = (g) =>
+          g
+            .selectAll("g")
+            .data(columns.map((c, i) => ({ scale: x[i], column: c })))
+            .join("g")
+            .attr("transform", (d, i) => `translate(${i * size},0)`)
+            .each(function (d) {
+              return d3.select(this).call(axisx(d.scale, d.column));
+            })
+
+            .style("fill", "hsl(var(--foreground))")
+            .call((g) => g.select(".domain").remove())
+            .call((g) => g.selectAll(".tick line").attr("stroke", "#ddd"));
+
+        const yAxis = (g) =>
+          g
+            .selectAll("g")
+            .data(columns.map((c, i) => ({ scale: y[i], column: c })))
+            .join("g")
+
+            .style("fill", "hsl(var(--foreground))")
+            .attr("transform", (d, i) => `translate(0,${i * size})`)
+            .each(function (d) {
+              return d3.select(this).call(axisy(d.scale, d.column));
+            })
+            .call((g) => g.select(".domain").remove())
+            .call((g) => g.selectAll(".tick line").attr("stroke", "#ddd"));
+
+        const svg = initializeSvg(
+          width,
+          height,
+          margin,
+          "#scatter-matrix",
+          "100vh"
+        );
+
+        // Add a tooltip
+        const tooltip = d3
+          .select("body")
+          .append("div")
+          .attr("class", "tooltip")
+          .style("position", "absolute")
+          .style("background", "rgba(255,255,255,0.9)")
+          .style("border", "1px solid #ddd")
+          .style("border-radius", "3px")
+          .style("padding", "8px")
+          .style("pointer-events", "none")
+          .style("opacity", 0);
+
+        svg.append("style").text(`
+        circle.hidden { fill: #000; fill-opacity: 1; r: 1px; }
+        .scale-badge {
+          font-size: 9px;
+          font-weight: bold;
+          fill: #666;
+        }
+      `);
+
+        svg.append("g").call(xAxis);
+        svg.append("g").call(yAxis);
+
+        const cell = svg
+          .append("g")
+          .selectAll("g")
+          .data(d3.cross(d3.range(columns.length), d3.range(columns.length)))
+          .join("g")
+          .attr("transform", ([i, j]) => `translate(${i * size},${j * size})`);
+
+        cell
+          .append("rect")
+          .attr("fill", "none")
+          .attr("stroke", "#aaa")
+          .attr("x", padding / 2 + 0.5)
+          .attr("y", padding / 2 + 0.5)
+          .attr("width", size - padding)
+          .attr("height", size - padding);
+
+        // Add scale type badges
+        cell.each(function ([i, j]) {
+          const columnI = columns[i];
+          const columnJ = columns[j];
+
+          if (i === j) {
+            // For diagonal cells, show column name with text wrapping
+            const cellGroup = d3.select(this);
+
+            // Clear any previous content if needed
+            // cellGroup.html("");
+
+            // Add column name with wrapping
+            const cellText = cellGroup
+              .append("text")
+              .attr("class", "column-name")
+              .attr("x", size / 2) // Center horizontally
+              .attr("y", size / 2) // Center vertically
+              .attr("text-anchor", "middle") // Center text horizontally
+              .attr("dominant-baseline", "middle"); // Center text vertically
+
+            // Add scale type badge if needed
+            cellGroup
+              .append("text")
+              .attr("class", "scale-badge")
+              .attr("x", size - padding)
+              .attr("y", size - padding + 12)
+              .style("fill", "hsl(var(--foreground))")
+              .attr("text-anchor", "end")
+              .text(() => (scaleTypes[columnI] === "log" ? "LOG SCALE" : ""));
+
+            // Handle text wrapping for column name
+            const wrapWidth = size - 2 * padding;
+            const words = columnI.split(/\s+/);
+            let line = [];
+            let lineNumber = 0;
+            const lineHeight = 14; // Adjust as needed
+
+            words.forEach((word) => {
+              line.push(word);
+              const testLine = line.join(" ");
+
+              // Check if adding this word exceeds width
+              const testWidth = getTextWidth(testLine, "16px sans-serif"); // You may need to implement getTextWidth
+
+              if (testWidth > wrapWidth) {
+                // Remove the last word and create a line with the rest
+                line.pop();
+
+                if (line.length) {
+                  cellText
+                    .append("tspan")
+                    .attr("x", size / 2)
+                    .attr(
+                      "y",
+                      size / 2 -
+                        ((words.length - 1) * lineHeight) / 2 +
+                        lineNumber * lineHeight
+                    )
+                    .attr("text-anchor", "middle")
+                    .text(line.join(" "));
+                }
+
+                line = [word];
+                lineNumber++;
+              }
+            });
+
+            // Add the last line
+            if (line.length > 0) {
+              cellText
+                .append("tspan")
+                .attr("x", size / 2)
+                .attr(
+                  "y",
+                  size / 2 -
+                    ((words.length - 1) * lineHeight) / 2 +
+                    lineNumber * lineHeight
+                )
+                .attr("text-anchor", "middle")
+                .text(line.join(" "));
+            }
+          }
+        });
+
+        // Add points with error handling
+        cell.each(function ([i, j]) {
+          const columnI = columns[i];
+          const columnJ = columns[j];
+          if (i == j) {
+            return;
+          }
+          d3.select(this)
+            .selectAll("circle")
+            .data(
+              otherData.filter((d) => {
+                // Filter out invalid values for the scales being used
+                const valueI = d[columnI]?.value;
+                const valueJ = d[columnJ]?.value;
+
+                if (
+                  scaleTypes[columnI] === "log" &&
+                  (valueI <= 0 || !isFinite(valueI))
+                )
+                  return false;
+                if (
+                  scaleTypes[columnJ] === "log" &&
+                  (valueJ <= 0 || !isFinite(valueJ))
+                )
+                  return false;
+
+                return true;
+              })
+            )
+            .join("circle")
+            .attr("cx", (d) => {
+              // if ()
+              const both_categorical = Array(columnI, columnJ).every((val) =>
+                categorical.includes(val)
+              );
+              if (both_categorical) {
+                return x[i](
+                  Math.min(
+                    3,
+                    Math.max(0.01, d[columnI].value + Math.random() * 0.5)
+                  )
+                );
+              }
+              return x[i](d[columnI].value);
+            })
+            .attr("cy", (d) => {
+              const both_categorical = Array(columnI, columnJ).every((val) =>
+                categorical.includes(val)
+              );
+              if (both_categorical) {
+                return x[i](
+                  Math.min(
+                    3,
+                    Math.max(0.01, d[columnI].value + Math.random() * 0.5)
+                  )
+                );
+              }
+              return y[j](d[columnJ].value);
+            });
+        });
+
+        const circle = cell
+          .selectAll("circle")
+          .attr("r", 3.5)
+          .attr("fill-opacity", 0.7)
+          .attr("fill", (d) => color(d.cluster))
+          .on("mouseover", function (event, d) {
+            d3.select(this).attr("stroke", "#000").attr("stroke-width", 1.5);
+
+            tooltip.transition().duration(200).style("opacity", 0.9);
+
+            const i = Math.floor(this.parentNode.__data__[0]);
+            const j = Math.floor(this.parentNode.__data__[1]);
+            const columnI = columns[i];
+            const columnJ = columns[j];
+
+            tooltip
+              .html(
+                `
+          <strong>Cluster:</strong> ${d.cluster + 1}<br>
+          <strong>${columnI}:</strong> ${d3.format(
+                  scaleTypes[columnI] === "log" ? ".3~g" : ".3~f"
+                )(d[columnI].value)}<br>
+          <strong>${columnJ}:</strong> ${d3.format(
+                  scaleTypes[columnJ] === "log" ? ".3~g" : ".3~f"
+                )(d[columnJ].value)}
+        `
+              )
+              .style("left", event.pageX + 10 + "px")
+              .style("top", event.pageY - 28 + "px");
+          })
+          .on("mouseout", function () {
+            d3.select(this).attr("stroke", null).attr("stroke-width", null);
+
+            tooltip.transition().duration(500).style("opacity", 0);
+          });
+
+        // Add legend for scale types
+        const legend = svg
+          .append("g")
+          .attr("transform", `translate(${width - 150}, 10)`);
+
+        // Count the number of log scales
+        const logScaleCount = Object.values(scaleTypes).filter(
+          (type) => type === "log"
+        ).length;
+
+        if (logScaleCount > 0) {
+          legend
+            .append("text")
+            .attr("x", 0)
+            .attr("y", 0)
+            .style("font", "bold 10px sans-serif")
+            .style("fill", "hsl(var(--foreground))")
+            .text(
+              `${logScaleCount} feature${
+                logScaleCount > 1 ? "s" : ""
+              } using log scale`
+            );
+        }
+
+        svg.property("value", []);
+      }
+      function getTextWidth(text, font) {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        context.font = font;
+        const metrics = context.measureText(text);
+        return metrics.width;
+      }
+
+      function addFilter() {
+        // Get the container where the filter UI will be added
+        const container = document.querySelector("#pca-precincts");
+        container.innerHTML = "";
+
+        container.appendChild(createPctList());
+        // if (
+        //   container.firstChild &&
+        //   container.firstChild.classList.contains("cluster-filter")
+        // ) {
+        //   container.remove(container.firstChild);
+        // }
+
+        // First, determine how many clusters we have based on the current k value
+        const uniqueClusters = [...new Set(kmeans["labels"][theK - 1])].sort();
+
+        // Create the filter controls container
+        const filterControls = document.createElement("ul");
+        filterControls.className = "uk-subnav uk-subnav-primary cluster-filter";
+
+        // Add an "All" option
+        const allLi = document.createElement("li");
+        allLi.setAttribute("data-uk-filter-control", "");
+        const allLink = document.createElement("a");
+        allLink.href = "#";
+        allLink.textContent = "All Clusters";
+        allLi.appendChild(allLink);
+        filterControls.appendChild(allLi);
+
+        // Add a filter option for each cluster
+        uniqueClusters.forEach((cluster) => {
+          const li = document.createElement("li");
+          li.setAttribute("data-uk-filter-control", `.cluster-${cluster}`);
+
+          const link = document.createElement("a");
+          link.href = "#";
+          link.textContent = `Cluster ${cluster + 1}`;
+
+          li.appendChild(link);
+          filterControls.appendChild(li);
+        });
+
+        // Add the filter controls to the container
+        container.insertBefore(filterControls, container.firstChild);
+
+        // Make sure the items in the container have the appropriate filter classes
+        // This assumes you have items in the container that represent the data points
+        const items = container.querySelectorAll(".scatter-point"); // Adjust selector as needed
+        console.log(kmeans);
+        items.forEach((item, index) => {
+          const clusterValue = kmeans["labels"][theK - 1][index];
+          item.classList.add(`cluster-${clusterValue}`);
+        });
+
+        // Initialize the UIkit filter component
+        UIkit.filter(container, {});
+      }
+
+      // addFilter();
+
+      async function updatePlots() {
+        // kmeans =
+        // kmeans = await fetch("http://18.209.163.81/k-means").then((data) =>
+        //   data.json()
+        // );
+        biplot_data = await fetch(
+          `http://18.209.163.81/bi-plot?p1=${pc1}&p2=${pc2}`
+        ).then((data) => data.json());
+        addBiplot(theK - 1);
+      }
+
+      // --- MDS/PCP Plotting Functions ---
+      function createDataMDSPlot(mdsData, kmeansResult, currentK) {
+        /* ... Keep from previous ... */
+        console.log("called");
+        const containerSelector = "#mds-data-plot";
+        d3.select(containerSelector).select("svg").remove(); // Clear previous plot
+        d3.select(containerSelector).select("p").remove(); // Clear previous plot
+
+        const margin = { top: 60, right: 100, bottom: 60, left: 70 };
+        const parentElement = d3.select(containerSelector).node();
+        if (!parentElement) return;
+        const parentWidth = parentElement.getBoundingClientRect().width;
+        const width = Math.max(300, parentWidth - margin.left - margin.right);
+        const height = Math.min(600, width * 0.8) - margin.top - margin.bottom;
+
+        if (
+          !mdsData ||
+          !mdsData.x ||
+          !mdsData.y ||
+          mdsData.x.length === 0 ||
+          !kmeansResult ||
+          !kmeansResult.labels
+        ) {
+          d3.select(containerSelector).html(
+            '<p class="uk-text-danger uk-text-center uk-padding">Error: Data for MDS plot is missing or invalid.</p>'
+          );
+          return;
+        }
+        if (currentK < 1 || currentK > kmeansResult.labels.length) {
+          d3.select(containerSelector).html(
+            `<p class="uk-text-danger uk-text-center uk-padding">Error: Invalid number of clusters selected (${currentK}).</p>`
+          );
+          return;
+        }
+
+        const clusterLabels = kmeansResult.labels[currentK - 1];
+
+        if (mdsData.x.length !== clusterLabels.length) {
+          d3.select(containerSelector).html(
+            '<p class="uk-text-danger uk-text-center uk-padding">Error: Data inconsistency.</p>'
+          );
+          return;
+        }
+
+        const svg = initializeSvg(
+          width,
+          height,
+          margin,
+          containerSelector,
+          "70vh"
+        );
+        if (!svg) return;
+
+        // Create tooltip div
+        const tooltip = d3
+          .select("body")
+          .append("div")
+          .attr("class", "tooltip")
+          .style("opacity", 0)
+          .style("position", "absolute")
+          .style("background-color", "hsl(var(--muted))")
+          .style("color", "hsl(var(--muted-foreground))")
+          .style("border", "1px solid hsl(var(--border))")
+          .style("border-radius", "5px")
+          .style("padding", "8px")
+          .style("pointer-events", "none")
+          .style("font-size", "12px")
+          .style("z-index", 1000);
+
+        const xExtent = d3.extent(mdsData.x);
+        const yExtent = d3.extent(mdsData.y);
+        const xPadding = (xExtent[1] - xExtent[0]) * 0.05 || 1; // Add fallback padding
+        const yPadding = (yExtent[1] - yExtent[0]) * 0.05 || 1;
+
+        const xScale = d3
+          .scaleLinear()
+          .domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+          .range([0, width]);
+        const yScale = d3
+          .scaleLinear()
+          .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+          .range([height, 0]);
+
+        svg
+          .append("g")
+          .attr("transform", `translate(0, ${height})`)
+          .call(d3.axisBottom(xScale).ticks(5));
+        svg.append("g").call(d3.axisLeft(yScale).ticks(5));
+        addXText(svg, width, height, margin, "MDS Dimension 1");
+        addYText(svg, height, margin, "MDS Dimension 2");
+        addTitle(
+          svg,
+          width,
+          margin,
+          "",
+          "",
+          `Data MDS Plot`,
+          `k=${currentK} clusters, Stress: ${
+            mdsData.stress?.toFixed(3) ?? "N/A"
+          }`
+        );
+
+        // Prepare plot data with precinct information
+        const plotData = mdsData.x.map((xVal, i) => ({
+          x: xVal,
+          y: mdsData.y[i],
+          cluster: clusterLabels[i],
+          precinct:
+            mdsData.precincts && i < mdsData.precincts.length
+              ? mdsData.precincts[i]
+              : `Point ${i + 1}`,
+          feature:
+            mdsData.features && i < mdsData.features.length
+              ? mdsData.features[i]
+              : null,
+        }));
+
+        svg
+          .selectAll(".mds-point")
+          .data(plotData)
+          .join("circle")
+          .attr("class", "mds-point")
+          .attr("cx", (d) => xScale(d.x))
+          .attr("cy", (d) => yScale(d.y))
+          .attr("r", 4)
+          .attr("fill", (d) => cluster_color(d.cluster))
+          .attr("fill-opacity", 0.7)
+          .attr("stroke", "hsl(var(--background))")
+          .attr("stroke-width", 0.5)
+          .on("mouseover", function (event, d) {
+            console.log("over");
+            d3.select(this).attr("r", 6).attr("stroke-width", 1.5);
+
+            // Show tooltip with precinct information
+            let tooltipContent = `Precinct: ${d.precinct}<br>Cluster: ${
+              d.cluster + 1
+            }`;
+            if (d.feature) {
+              tooltipContent += `<br>Feature: ${d.feature}`;
+            }
+
+            tooltip.transition().duration(200).style("opacity", 0.9);
+            tooltip
+              .html(tooltipContent)
+              .style("left", event.pageX + 10 + "px")
+              .style("top", event.pageY - 28 + "px");
+          })
+          .on("mouseout", function () {
+            d3.select(this).attr("r", 4).attr("stroke-width", 0.5);
+
+            tooltip.transition().duration(500).style("opacity", 0);
+          });
+
+        const uniqueClustersPresent = [...new Set(clusterLabels)].sort(
+          (a, b) => a - b
+        );
+        const legendSize = 12;
+        const legendSpacing = 4;
+        const legend = svg
+          .append("g")
+          .attr("class", "legend")
+          .attr("transform", `translate(${width + margin.left * 0.2}, 0)`);
+        legend
+          .selectAll(".legend-item")
+          .data(uniqueClustersPresent)
+          .join("g")
+          .attr("class", "legend-item")
+          .attr(
+            "transform",
+            (d, i) => `translate(0, ${i * (legendSize + legendSpacing)})`
+          )
+          .each(function (clusterId) {
+            const g = d3.select(this);
+            g.selectAll("*").remove();
+            g.append("rect")
+              .attr("width", legendSize)
+              .attr("height", legendSize)
+              .attr("rx", 2)
+              .attr("fill", cluster_color(clusterId));
+            g.append("text")
+              .attr("x", legendSize + legendSpacing + 2)
+              .attr("y", legendSize / 2)
+              .attr("dy", "0.35em")
+              .style("font-size", "11px")
+              .style("fill", "hsl(var(--foreground))")
+              .text(`Cluster ${clusterId + 1}`);
+          });
+
+        // Remove tooltip when the visualization is cleared or redrawn
+        return () => {
+          d3.select(".tooltip").remove();
+        };
+      }
+
+      function createVariablesMDSPlot(varsMDSData) {
+        /* ... Keep from previous ... */
+        const containerSelector = "#mds-variables-plot";
+        d3.select(containerSelector).select("svg").remove();
+        d3.select(containerSelector).select("p").remove();
+
+        const margin = { top: 60, right: 50, bottom: 60, left: 70 };
+        const parentElement = d3.select(containerSelector).node();
+        if (!parentElement) return;
+        const parentWidth = parentElement.getBoundingClientRect().width;
+        const width = Math.max(300, parentWidth - margin.left - margin.right);
+        const height = Math.min(600, width * 0.8) - margin.top - margin.bottom;
+
+        if (
+          !varsMDSData ||
+          !varsMDSData.variables ||
+          !varsMDSData.x ||
+          !varsMDSData.y ||
+          varsMDSData.variables.length === 0
+        ) {
+          d3.select(containerSelector).html(
+            '<p class="uk-text-danger uk-text-center uk-padding">Error: Data for Variables MDS plot is missing or invalid.</p>'
+          );
+          return;
+        }
+
+        const svg = initializeSvg(
+          width,
+          height,
+          margin,
+          containerSelector,
+          "70vh"
+        );
+        if (!svg) return;
+
+        const xExtent = d3.extent(varsMDSData.x);
+        const yExtent = d3.extent(varsMDSData.y);
+        const xPadding = (xExtent[1] - xExtent[0]) * 0.05 || 1;
+        const yPadding = (yExtent[1] - yExtent[0]) * 0.05 || 1;
+
+        const xScale = d3
+          .scaleLinear()
+          .domain([xExtent[0] - xPadding, xExtent[1] + xPadding])
+          .range([0, width]);
+        const yScale = d3
+          .scaleLinear()
+          .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
+          .range([height, 0]);
+
+        svg
+          .append("g")
+          .attr("transform", `translate(0, ${height})`)
+          .call(d3.axisBottom(xScale).ticks(5));
+        svg.append("g").call(d3.axisLeft(yScale).ticks(5));
+        addXText(svg, width, height, margin, "MDS Dimension 1 (Variables)");
+        addYText(svg, height, margin, "MDS Dimension 2");
+        addTitle(
+          svg,
+          width,
+          margin,
+          "",
+          "",
+          `Variables MDS Plot`,
+          `Based on 1 - |Correlation|, Stress: ${
+            varsMDSData.stress?.toFixed(3) ?? "N/A"
+          }`
+        );
+
+        const plotData = varsMDSData.variables.map((variable, i) => ({
+          name: variable,
+          id: variable.replace(/[^a-zA-Z0-9]/g, ""),
+          x: varsMDSData.x[i],
+          y: varsMDSData.y[i],
+        }));
+
+        const tooltip = d3
+          .select("body")
+          .append("div")
+          .attr("class", "tooltip")
+          .style("opacity", 0)
+          .style("position", "absolute")
+          .style("background-color", "hsl(var(--muted))")
+          .style("color", "hsl(var(--muted-foreground))")
+          .style("border", "1px solid hsl(var(--border))")
+          .style("border-radius", "5px")
+          .style("padding", "8px")
+          .style("pointer-events", "none")
+          .style("font-size", "12px")
+          .style("z-index", 1000);
+        svg
+          .selectAll(".variable-point")
+          .data(plotData, (d) => d.id)
+          .join("circle")
+          .attr("class", "variable-point")
+          .attr("cx", (d) => xScale(d.x))
+          .attr("cy", (d) => yScale(d.y))
+          .attr("r", 5)
+          .attr("fill", (d) =>
+            selectedPcpAxesOrder.includes(d.name)
+              ? "hsl(var(--primary-foreground))"
+              : d.name == "borough"
+              ? "red"
+              : "hsl(var(--primary))"
+          )
+          .attr("stroke", (d) =>
+            selectedPcpAxesOrder.includes(d.name)
+              ? "hsl(var(--ring))"
+              : "hsl(var(--primary-foreground))"
+          )
+          .attr("stroke-width", (d) =>
+            selectedPcpAxesOrder.includes(d.name) ? 1.5 : 1
+          )
+          .style("cursor", "pointer")
+          .on("mouseover", function (event, d) {
+            console.log(d);
+            d3.select(this).attr("r", 7);
+            let tooltipContent = `Variable: ${d.name}<br>`;
+
+            tooltip.transition().duration(200).style("opacity", 0.9);
+            tooltip
+              .html(tooltipContent)
+              .style("left", event.pageX + 10 + "px")
+              .style("top", event.pageY - 28 + "px");
+          })
+          .on("mouseout", function () {
+            d3.select(this).attr("r", 4).attr("stroke-width", 0.5);
+
+            tooltip.transition().duration(500).style("opacity", 0);
+          })
+          .on("click", function (event, d) {
+            handleVariableClick(d, this);
+          });
+
+        updateSequenceNumbers();
+
+        function handleVariableClick(d, element) {
+          /* ... Keep as is ... */
+          const clickedVar = d.name;
+          const pointElement = d3.select(element);
+          const indexInSelection = selectedPcpAxesOrder.indexOf(clickedVar);
+          if (indexInSelection > -1) {
+            // Deselect
+            selectedPcpAxesOrder.splice(indexInSelection, 1);
+            pointElement
+              .classed("selected-for-pcp", false)
+              .attr("fill", "hsl(var(--primary))")
+              .attr("stroke", "hsl(var(--primary-foreground))")
+              .attr("stroke-width", 1);
+          } else {
+            // Select
+            selectedPcpAxesOrder.push(clickedVar);
+            pointElement
+              .classed("selected-for-pcp", true)
+              .attr("fill", "hsl(var(--primary-foreground))")
+              .attr("stroke", "hsl(var(--ring))")
+              .attr("stroke-width", 1.5);
+          }
+          pcpAxesOrder =
+            selectedPcpAxesOrder.length > 0
+              ? [...selectedPcpAxesOrder]
+              : [...numericalColumnsForPCP];
+          updateSequenceNumbers();
+          updatePCPPlotIfNeeded();
+          console.log("Selected PCP Order:", pcpAxesOrder);
+        }
+        function updateSequenceNumbers() {
+          /* ... Keep as is ... */
+          const plotSvg = d3.select(containerSelector).select("svg g"); // Target the main group
+          if (plotSvg.empty()) return; // Don't try if svg not ready
+          plotSvg.selectAll(".variable-sequence-number").remove();
+          selectedPcpAxesOrder.forEach((varName, index) => {
+            const pointData = plotData.find((p) => p.name === varName);
+            if (pointData) {
+              plotSvg
+                .append("text")
+                .datum(pointData)
+                .attr("class", "variable-sequence-number")
+                .attr("id", `seq-${pointData.id}`)
+                .attr("x", xScale(pointData.x) + 8)
+                .attr("y", yScale(pointData.y) + 4)
+                .text(index + 1);
+            }
+          });
+        }
+
+        document.getElementById("reset-pcp-order-btn").onclick = () => {
+          /* ... Keep as is ... */
+          selectedPcpAxesOrder = [];
+          pcpAxesOrder = ["borough", ...numericalColumnsForPCP];
+          const plotSvg = d3.select(containerSelector).select("svg g");
+          if (!plotSvg.empty()) {
+            plotSvg
+              .selectAll(".variable-point")
+              .classed("selected-for-pcp", false)
+              .attr("fill", "hsl(var(--primary))")
+              .attr("stroke", "hsl(var(--primary-foreground))")
+              .attr("stroke-width", 1);
+            updateSequenceNumbers();
+          }
+          updatePCPPlotIfNeeded();
+          console.log("PCP order reset to default.");
+        };
+      }
+      function createPCPPlot(
+        plotAllData,
+        colTypes,
+        kmeansResult,
+        currentK,
+        axisOrder
+      ) {
+        /* ... Keep from previous, ensure svg is checked ... */
+        const containerSelector = "#pcp-plot";
+        d3.select(containerSelector).select("svg").remove();
+
+        const margin = { top: 60, right: 50, bottom: 60, left: 70 };
+        const parentElement = d3.select(containerSelector).node();
+        if (!parentElement) return;
+        const parentWidth = parentElement.getBoundingClientRect().width;
+        const width = Math.max(400, parentWidth - margin.left - margin.right);
+        const height = Math.min(600, width * 0.6) - margin.top - margin.bottom;
+
+        if (
+          !plotAllData ||
+          plotAllData.length === 0 ||
+          !kmeansResult ||
+          !kmeansResult.labels ||
+          !axisOrder ||
+          axisOrder.length === 0
+        ) {
+          d3.select(containerSelector).html(
+            '<p class="uk-text-danger uk-text-center uk-padding">Error: Data/Config for PCP plot is missing.</p>'
+          );
+          return;
+        }
+        if (currentK < 1 || currentK > kmeansResult.labels.length) {
+          d3.select(containerSelector).html(
+            `<p class="uk-text-danger uk-text-center uk-padding">Error: Invalid number of clusters selected (${currentK}).</p>`
+          );
+          return;
+        }
+
+        const clusterLabels = kmeansResult.labels[currentK - 1];
+        if (plotAllData.length !== clusterLabels.length) {
+          d3.select(containerSelector).html(
+            '<p class="uk-text-danger uk-text-center uk-padding">Error: PCP Data inconsistency.</p>'
+          );
+          return;
+        }
+
+        const svg = initializeSvg(
+          width,
+          height,
+          margin,
+          containerSelector,
+          "70vh"
+        );
+        if (!svg) return; // Check if SVG was created
+
+        // --- Scale creation & Axis filtering (Keep logic) ---
+        const yScales = {};
+        // Store original domains for each dimension
+        const dimensionDomains = {};
+        // Track active filters for each dimension
+        const dimensionFilters = {};
+
+        const currentAxisOrder = [...axisOrder];
+        currentAxisOrder.forEach((dimension) => {
+          /* ... Keep scale creation ... */
+          if (!colTypes[dimension]) {
+            console.warn(`Col type missing: ${dimension}`);
+            return;
+          }
+          const validValues = plotAllData
+            .map((d) => d[dimension])
+            .filter(
+              (v) =>
+                v !== null &&
+                v !== undefined &&
+                (colTypes[dimension] !== "numerical" || !isNaN(v))
+            );
+          if (validValues.length === 0) {
+            console.warn(`No valid data: ${dimension}`);
+            yScales[dimension] = d3
+              .scaleLinear()
+              .domain([0, 1])
+              .range([height, 0]);
+            dimensionDomains[dimension] = [0, 1];
+            return;
+          }
+          if (colTypes[dimension] === "numerical") {
+            const extent = d3.extent(validValues);
+            if (extent[0] === extent[1]) {
+              const domain = [extent[0] - 0.5, extent[1] + 0.5];
+              yScales[dimension] = d3
+                .scaleLinear()
+                .domain(domain)
+                .range([height, 0])
+                .nice();
+              dimensionDomains[dimension] = domain;
+            } else {
+              const domain = extent;
+              yScales[dimension] = d3
+                .scaleLinear()
+                .domain(domain)
+                .range([height, 0])
+                .nice();
+              dimensionDomains[dimension] = yScales[dimension].domain(); // Get the nice'd domain
+            }
+            // Initialize filters to the full domain
+            dimensionFilters[dimension] = [...dimensionDomains[dimension]];
+          } else {
+            // Categorical
+            const domain = [...new Set(validValues)].sort();
+            yScales[dimension] = d3
+              .scalePoint()
+              .domain(domain)
+              .range([height, 0])
+              .padding(0.5);
+            dimensionDomains[dimension] = domain;
+            // For categorical, we'll use a set of all categories as the filter
+            dimensionFilters[dimension] = new Set(domain);
+          }
+        });
+
+        const finalAxisOrder = currentAxisOrder.filter((dim) => yScales[dim]);
+        if (finalAxisOrder.length < 2) {
+          // Need at least 2 axes for lines
+          d3.select(containerSelector).html(
+            '<p class="uk-text-danger uk-text-center uk-padding">Error: Not enough valid dimensions for PCP.</p>'
+          );
+          return;
+        }
+
+        const uniqueClustersPresent = [...new Set(clusterLabels)].sort(
+          (a, b) => a - b
+        );
+        const legendSize = 12;
+        const legendSpacing = 4;
+        const legend = svg
+          .append("g")
+          .attr("class", "legend")
+          .attr(
+            "transform",
+            `translate(${0 + margin.left * 0.2}, ${height + margin.bottom / 2})`
+          );
+        legend
+          .selectAll(".legend-item")
+          .data(uniqueClustersPresent)
+          .join("g")
+          .attr("class", "legend-item")
+          .attr("transform", (d, i) => {
+            if (i < 4)
+              return `translate(0, ${i * (legendSize + legendSpacing)})`;
+            else if (i < 8)
+              return `translate(80, ${(i - 4) * (legendSize + legendSpacing)})`;
+            return `translate(160, ${(i - 8) * (legendSize + legendSpacing)})`;
+          })
+          .each(function (clusterId) {
+            const g = d3.select(this);
+            g.selectAll("*").remove();
+            g.append("rect")
+              .attr("width", legendSize)
+              .attr("height", legendSize)
+              .attr("rx", 2)
+              .attr("fill", cluster_color(clusterId));
+            g.append("text")
+              .attr("x", legendSize + legendSpacing + 2)
+              .attr("y", legendSize / 2)
+              .attr("dy", "0.35em")
+              .style("font-size", "11px")
+              .style("fill", "hsl(var(--foreground))")
+              .text(`Cluster ${clusterId + 1}`);
+          });
+
+        // Create a working copy of the axis order to use during dragging
+        // This maintains the relationship with the global pcpAxesOrder variable
+        let workingAxisOrder = [...finalAxisOrder];
+
+        svg
+          .append("text")
+          .attr("x", width / 2)
+          .attr("y", height + 50)
+          .attr("text-anchor", "middle")
+          .classed("text-xl", true)
+          .classed("md:text-2xl", true)
+          .classed("lg:text-3xl", true)
+          .style("fill", "hsl(var(--primary))")
+          .style("cursor", "pointer")
+          .text("Sort by Correlation")
+          .on("click", function () {
+            console.log("sort");
+            // Final update of the xScale domain
+            // workingAxisOrder = work
+            xScale.domain(
+              workingAxisOrder.sort(function (a, b) {
+                return (
+                  optimalPcpAxesOrder.indexOf(a) -
+                  optimalPcpAxesOrder.indexOf(b)
+                );
+              })
+            );
+
+            // Smooth transition to final positions
+            svg
+              .selectAll(".axis")
+              .transition()
+              .duration(250)
+              .attr("transform", (dim) => `translate(${xScale(dim)},0)`);
+
+            svg
+              .selectAll(".foreground-lines path, .background-lines path")
+              .transition()
+              .duration(250)
+              .attr("d", path);
+          });
+
+        const xScale = d3
+          .scalePoint()
+          .domain(workingAxisOrder)
+          .range([0, width])
+          .padding(0.2);
+
+        // Function to check if a data point should be visible based on filters
+        function isDataVisible(d) {
+          return workingAxisOrder.every((p) => {
+            const value = d[p];
+            if (value === null || value === undefined) return false;
+
+            if (colTypes[p] === "numerical") {
+              // For numerical, check if within range
+              return (
+                value >= dimensionFilters[p][0] &&
+                value <= dimensionFilters[p][1]
+              );
+            } else {
+              // For categorical, check if in the set of allowed categories
+              return dimensionFilters[p].has(value);
+            }
+          });
+        }
+
+        function path(d) {
+          /* ... Keep path function ... */
+          const points = workingAxisOrder
+            .map((p) => {
+              const value = d[p];
+              if (value === null || value === undefined || !yScales[p])
+                return null;
+              if (
+                colTypes[p] !== "numerical" &&
+                !yScales[p].domain().includes(value)
+              )
+                return null;
+              return [xScale(p), yScales[p](value)];
+            })
+            .filter((p) => p !== null);
+          return points.length > 1 ? d3.line()(points) : null; // Return null if only one point
+        }
+
+        // Background lines (all data)
+        const backgroundLines = svg
+          .append("g")
+          .attr("class", "background-lines")
+          .selectAll("path")
+          .data(plotAllData)
+          .join("path")
+          .attr("d", path)
+          .style("fill", "none")
+          .style("stroke", "hsl(var(--muted))")
+          .style("stroke-opacity", 0.2)
+          .style("shape-rendering", "crispEdges");
+
+        // Foreground lines (filtered data)
+        const foregroundLines = svg
+          .append("g")
+          .attr("class", "foreground-lines")
+          .selectAll("path")
+          .data(plotAllData)
+          .join("path")
+          .attr("d", path)
+          .style("fill", "none")
+          .style("stroke", (d, i) => cluster_color(clusterLabels[i]))
+          .style("stroke-opacity", 0.4)
+          .style("stroke-width", 1);
+
+        // Function to update the visibility of lines based on filters
+        function updateLineVisibility() {
+          backgroundLines.style("display", (d) =>
+            isDataVisible(d) ? null : "none"
+          );
+
+          foregroundLines.style("display", (d) =>
+            isDataVisible(d) ? null : "none"
+          );
+        }
+
+        // --- Axes & Dragging (FIXED) ---
+        const axisGroups = svg
+          .append("g")
+          .attr("class", "axes")
+          .selectAll(".axis")
+          .data(workingAxisOrder, (d) => d)
+          .join("g")
+          .attr("class", "axis")
+          .attr("transform", (d) => `translate(${xScale(d)},0)`)
+          .each(function (d) {
+            /* ... Keep axis rendering ... */
+            const axisGenerator = d3.axisLeft(yScales[d]);
+            if (colTypes[d] === "numerical") axisGenerator.ticks(5, "~s");
+            else axisGenerator.tickSizeOuter(0);
+            d3.select(this)
+              .call(axisGenerator)
+              .selectAll("text")
+              .style("font-size", "9px");
+          })
+          .call(
+            d3
+              .drag()
+              .on("start", dragstarted)
+              .on("drag", dragged)
+              .on("end", dragended)
+          );
+
+        axisGroups
+          .append("text")
+          .attr("class", "axis-name")
+          .style("text-anchor", "middle")
+          .attr("y", -12)
+          .text((d) => capitalize(d))
+          .style("fill", "hsl(var(--foreground))")
+          .style("font-size", "11px")
+          .style("font-weight", "500")
+          .style("cursor", "move");
+
+        axisGroups
+          .append("rect")
+          .attr("class", "drag-handle")
+          .attr("x", -8)
+          .attr("y", -margin.top / 2)
+          .attr("width", 16)
+          .attr("height", margin.top / 2)
+          .style("fill", "transparent")
+          .style("cursor", "move");
+
+        // Add range sliders for each numerical axis
+        axisGroups.each(function (dimension) {
+          const axisSel = d3.select(this);
+
+          if (colTypes[dimension] === "numerical") {
+            // For numerical dimensions, add range brushes
+            const brushHeight = 8;
+            const domain = dimensionDomains[dimension];
+
+            // Create a group for the brush
+            const brushGroup = axisSel
+              .append("g")
+              .attr("class", "brush-group")
+              .attr("transform", `translate(-10, 0)`);
+
+            // Add a background track for the brush
+            brushGroup
+              .append("rect")
+              .attr("class", "brush-track")
+              .attr("x", 0)
+              .attr("y", 0)
+              .attr("width", 20)
+              .attr("height", height)
+              .style("fill", "hsla(var(--muted-foreground), 0.2)")
+              .style("stroke", "none")
+              .style("rx", 3)
+              .style("ry", 3);
+
+            // Create brush for this axis
+            const brush = d3
+              .brushY()
+              .extent([
+                [0, 0],
+                [20, height],
+              ])
+              .on("brush", brushed)
+              .on("end", brushEnded);
+
+            // Add the brush to the group
+            const brushSel = brushGroup.call(brush);
+
+            // Style the brush handles
+            brushSel
+              .selectAll(".handle")
+              .style("fill", "hsl(var(--primary))")
+              .style("stroke", "hsl(var(--primary-foreground))")
+              .attr("rx", 3)
+              .attr("ry", 3);
+
+            // Style the brush selection rectangle
+            brushSel
+              .selectAll(".selection")
+              .style("fill", "hsla(var(--primary), 0.3)")
+              .style("stroke", "hsl(var(--primary))")
+              .attr("rx", 3)
+              .attr("ry", 3);
+
+            // Initialize the brush to select the whole range
+            brushGroup.call(brush.move, [0, height]);
+
+            function brushed(event) {
+              if (!event.selection) return;
+
+              // Convert pixel positions to data values
+              const [y0, y1] = event.selection;
+              const [val0, val1] = [y1, y0].map(yScales[dimension].invert);
+
+              // Update the filter for this dimension
+              dimensionFilters[dimension] = [val0, val1];
+
+              // Update the visibility of lines
+              updateLineVisibility();
+            }
+
+            function brushEnded(event) {
+              if (!event.selection) {
+                // If the brush was removed, reset to full range
+                brushGroup.call(brush.move, [0, height]);
+                dimensionFilters[dimension] = [...dimensionDomains[dimension]];
+                updateLineVisibility();
+              }
+            }
+          } else {
+            // For categorical dimensions, add checkboxes (not implemented in this snippet)
+            // We could add checkboxes for each category here
+            const domain = dimensionDomains[dimension];
+            // This would be a more elaborate implementation with checkboxes
+          }
+        });
+
+        let draggingActive = false;
+        let draggedDimension;
+
+        function dragstarted(event, d) {
+          draggingActive = true;
+          draggedDimension = d;
+          d3.select(this)
+            .raise()
+            .select(".axis-name")
+            .style("font-weight", "bold");
+
+          // Store the current positions of all axes
+          workingAxisOrder.forEach((dim) => {
+            d3.select(this.parentNode)
+              .selectAll(".axis")
+              .filter((axisDim) => axisDim === dim)
+              .attr("data-orig-x", xScale(dim));
+          });
+        }
+
+        function dragged(event, d) {
+          if (!draggingActive) return;
+
+          // Get current mouse position, bounded by the width
+          const currentX = Math.max(0, Math.min(width, event.x));
+
+          // Move the dragged axis
+          d3.select(this).attr("transform", `translate(${currentX},0)`);
+
+          // Build a map of current positions for all axes
+          const currentPositions = {};
+          workingAxisOrder.forEach((dim) => {
+            if (dim === draggedDimension) {
+              currentPositions[dim] = currentX;
+            } else {
+              // Get the current position from the DOM or xScale
+              const axisNode = svg
+                .selectAll(".axis")
+                .filter((axisDim) => axisDim === dim)
+                .node();
+              if (axisNode) {
+                const transform = d3.select(axisNode).attr("transform");
+                const match = transform.match(/translate\(([^,]+)/);
+                currentPositions[dim] = match
+                  ? parseFloat(match[1])
+                  : xScale(dim);
+              } else {
+                currentPositions[dim] = xScale(dim);
+              }
+            }
+          });
+
+          // Compute the new order based on current visual positions
+          const newOrder = [...workingAxisOrder].sort((a, b) => {
+            return currentPositions[a] - currentPositions[b];
+          });
+
+          // Update the working order if it changed
+          if (JSON.stringify(newOrder) !== JSON.stringify(workingAxisOrder)) {
+            workingAxisOrder = newOrder;
+
+            // Update xScale with the new domain
+            xScale.domain(workingAxisOrder);
+
+            // Update positions of non-dragged axes smoothly
+            svg
+              .selectAll(".axis")
+              .filter((dim) => dim !== draggedDimension)
+              .attr("transform", (dim) => `translate(${xScale(dim)},0)`);
+
+            // Update all paths
+            svg
+              .selectAll(".foreground-lines path, .background-lines path")
+              .attr("d", path);
+          }
+        }
+
+        function dragended(event, d) {
+          if (!draggingActive) return;
+          draggingActive = false;
+
+          // Update the global pcpAxesOrder with the final order
+          if (
+            JSON.stringify(workingAxisOrder) !== JSON.stringify(pcpAxesOrder)
+          ) {
+            pcpAxesOrder = [...workingAxisOrder];
+            console.log("PCP Order updated by drag:", pcpAxesOrder);
+          }
+
+          // Final update of the xScale domain
+          xScale.domain(workingAxisOrder);
+
+          // Smooth transition to final positions
+          svg
+            .selectAll(".axis")
+            .transition()
+            .duration(250)
+            .attr("transform", (dim) => `translate(${xScale(dim)},0)`);
+
+          svg
+            .selectAll(".foreground-lines path, .background-lines path")
+            .transition()
+            .duration(250)
+            .attr("d", path);
+
+          d3.select(this).select(".axis-name").style("font-weight", "500");
+        }
+
+        // Add button to reset all filters
+        svg
+          .append("text")
+          .attr("x", width / 2)
+          .attr("y", -20)
+          .attr("text-anchor", "middle")
+          .style("fill", "hsl(var(--primary))")
+          .style("cursor", "pointer")
+          .style("font-size", "12px")
+          .text("Reset All Filters")
+          .on("click", function () {
+            // Reset all dimension filters to their original domains
+            workingAxisOrder.forEach((dimension) => {
+              if (colTypes[dimension] === "numerical") {
+                dimensionFilters[dimension] = [...dimensionDomains[dimension]];
+                // Reset the brush visually
+                const axisSel = svg.select(
+                  `.axis[transform*="translate(${xScale(dimension)}"]`
+                );
+                const brushSel = axisSel.select(".brush-group");
+                if (brushSel.size() > 0) {
+                  const brush = d3.brushY().extent([
+                    [0, 0],
+                    [20, height],
+                  ]);
+                  brushSel.call(brush).call(brush.move, [0, height]);
+                }
+              } else {
+                // For categorical, reset to all categories
+                dimensionFilters[dimension] = new Set(
+                  dimensionDomains[dimension]
+                );
+              }
+            });
+
+            // Update the visibility of lines
+            updateLineVisibility();
+          });
+
+        addTitle(
+          svg,
+          width,
+          margin,
+          "",
+          "",
+          `Parallel Coordinates Plot`,
+          `k=${currentK} clusters`
+        );
+        d3.select(containerSelector).select("p").remove();
+      } // --- Update Triggers ---
+
+      function updatePCPPlotIfNeeded() {
+        /* ... Keep from previous ... */
+        const pcpTabLi = document.getElementById("pcp_tab")?.closest("li");
+        if (
+          allLoadedData.length > 0 &&
+          kmeans &&
+          pcpTabLi?.classList.contains("uk-active")
+        ) {
+          console.log("createpcp");
+          createPCPPlot(
+            allLoadedData,
+            allColumnTypes,
+            kmeans,
+            theK,
+            pcpAxesOrder
+          );
+        }
+      }
+      function updateDataMDSPlotIfNeeded() {
+        /* ... Keep from previous ... */
+        const dataMdsTabLi = document
+          .getElementById("mds_data_tab")
+          ?.closest("li");
+        console.log(dataMdsTabLi?.classList.contains("uk-active"));
+        if (
+          dataMDS &&
+          kmeans &&
+          dataMdsTabLi?.classList.contains("uk-active")
+        ) {
+          createDataMDSPlot(dataMDS, kmeans, theK);
+        }
+      }
+      function updatePlotsDependentOnK(newK) {
+        // Updates plots when K changes
+        console.log(`Updating plots for k=${newK}`);
+        // if (!kmeans) return;
+        // 1. Update Significance/Scatter Matrix (fetch new data with cluster info, then render)
+        // if (di !== null) {
+        //   // Only if di is set
+        //   updateSignificanceData(di + 1, kmeans, newK).then(() => {
+        //     addSignificancePlot(); // Render uses updated significance_data
+        //   });
+        // } else {
+        //   // Clear significance if di isn't set
+        //   significance_data = null;
+        //   addSignificancePlot();
+        //   addScatterMatrix([], [], 0); // Clear scatter matrix too
+        // }
+        // // 2. Update Biplot (just colors)
+        // addBiplot(); // Re-render with current biplot_data and new k
+        // 3. Update Data MDS Plot
+        updateDataMDSPlotIfNeeded();
+        // 4. Update PCP Plot
+        updatePCPPlotIfNeeded();
+        // 5. Update Filter list in PCA tab
+        // addFilter();
+      }
+      function updatePlotsDependentOnPCs() {
+        // Updates Biplot when PC choice changes
+        console.log(`Updating Biplot for PC${pc1 + 1} vs PC${pc2 + 1}`);
+        updateBiplotData(pc1, pc2).then(() => {
+          addBiplot(); // Re-render with new data and current k
+        });
+      }
+      // --- Data Fetching Helpers ---
+      async function updateBiplotData(p1, p2) {
+        /* ... Keep from previous ... */
+        try {
+          biplot_data = await fetch(
+            `http://18.209.163.81/bi-plot?p1=${p1}&p2=${p2}`
+          ).then((res) => {
+            if (!res.ok) throw new Error(`Biplot fetch failed: ${res.status}`);
+            return res.json();
+          });
+          console.log("Biplot data updated");
+        } catch (error) {
+          console.error("Error fetching biplot data:", error);
+          biplot_data = null;
+          d3.select("#biplot").html(
+            `<p class="uk-text-danger">Error loading biplot: ${error.message}</p>`
+          );
+        }
+      }
+      async function updateSignificanceData(diValue, kmeansResult, currentK) {
+        /* ... Keep from previous ... */
+        if (
+          !kmeansResult ||
+          !kmeansResult.labels ||
+          currentK < 1 ||
+          currentK > kmeansResult.labels.length
+        ) {
+          console.error(
+            "Cannot update significance: Invalid k-means data or k value."
+          );
+          significance_data = [];
+          return;
+        }
+        try {
+          const fetchedData = await fetch(
+            `http://18.209.163.81/significance?di=${diValue}`
+          ).then((res) => {
+            if (!res.ok)
+              throw new Error(`Significance fetch failed: ${res.status}`);
+            return res.json();
+          });
+          const clusterLabelsForK = kmeansResult.labels[currentK - 1];
+          significance_data = fetchedData.map((featureData) => {
+            if (
+              !featureData.scatter ||
+              featureData.scatter.length !== clusterLabelsForK.length
+            ) {
+              console.warn(
+                `Scatter data missing/length mismatch for ${featureData.feature}`
+              );
+              return { ...featureData, scatter: [] };
+            }
+            const scatterWithClusters = featureData.scatter.map(
+              (value, index) => ({
+                value: value,
+                cluster: clusterLabelsForK[index],
+              })
+            );
+            return { ...featureData, scatter: scatterWithClusters };
+          });
+          console.log(
+            `Significance data updated for Di=${diValue}, k=${currentK}`
+          );
+        } catch (error) {
+          console.error("Error fetching significance data:", error);
+          significance_data = null;
+          d3.select("#significance").html(
+            `<p class="uk-text-danger">Error loading significance: ${error.message}</p>`
+          );
+          d3.select("#scatter-matrix").html("");
+        }
+      }
+
+      // --- Tab Activation Logic ---
+      function setupTabListeners() {
+        /* ... Keep corrected version from previous ... */
+        const tabsContainer = document.getElementById("main-tabs");
+        const switcherElement = document.getElementById("analysis-switcher");
+        if (!tabsContainer || !switcherElement) {
+          console.error("Tabs/Switcher not found.");
+          return;
+        }
+
+        switcherElement.addEventListener("show", async (event) => {
+          // if (event.target)
+          console.log(event.target);
+          const tabElement = event.target;
+          if (!tabElement.parentNode) {
+            console.warn("Switcher parent not found.");
+            return;
+          }
+          const index = Array.from(tabElement.parentNode.children).indexOf(
+            tabElement
+          );
+          const tabLinks = tabsContainer.querySelectorAll("li a");
+          if (index < 0 || index >= tabLinks.length) {
+            console.warn("Tab link not found for index:", index);
+            return;
+          }
+          const tabLink = tabLinks[index];
+          const tabId = tabLink.id;
+          console.log(`Tab show event for: ${tabId}`);
+          // dataMDS = await fetch("http://18.209.163.81/mds-data").then((res) =>
+          //   res.ok ? res.json() : Promise.reject(`HTTP ${res.status}`)
+          // );
+          try {
+            if (tabId === "pca_tab") {
+              // PCA plots are likely already initialized, but maybe redraw if needed?
+              // Or ensure layout is correct. Usually no action needed here if initialized correctly.
+            } else if (tabId === "mds_data_tab") {
+              if (!dataMDS) {
+                console.log("Fetching Data MDS...");
+                dataMDS = await fetch("http://18.209.163.81/mds-data").then(
+                  (res) =>
+                    res.ok ? res.json() : Promise.reject(`HTTP ${res.status}`)
+                );
+                console.log("Data MDS fetched");
+              }
+              if (!kmeans) {
+                kmeans = await fetch("http://18.209.163.81/k-means").then(
+                  (data) => data.json()
+                );
+              }
+              if (kmeans) createDataMDSPlot(dataMDS, kmeans, theK);
+              else
+                d3.select("#mds-data-plot").html(
+                  '<p class="uk-text-warning uk-text-center uk-padding">Waiting for K-Means data...</p>'
+                );
+            } else if (tabId === "mds_variables_tab") {
+              if (!variablesMDS) {
+                console.log("Fetching Variables MDS...");
+                variablesMDS = await fetch(
+                  "http://18.209.163.81/mds-variables"
+                ).then((res) =>
+                  res.ok ? res.json() : Promise.reject(`HTTP ${res.status}`)
+                );
+                optimalPcpAxesOrder = variablesMDS.variables;
+                console.log("Variables MDS fetched");
+              }
+              createVariablesMDSPlot(variablesMDS);
+            } else if (tabId === "pcp_tab") {
+              if (allLoadedData.length > 0 && kmeans) {
+                console.log("Rendering PCP plot with order:", pcpAxesOrder);
+                createPCPPlot(
+                  allLoadedData,
+                  allColumnTypes,
+                  kmeans,
+                  theK,
+                  pcpAxesOrder
+                );
+              } else {
+                d3.select("#pcp-plot").html(
+                  '<p class="uk-text-warning uk-text-center uk-padding">Waiting for data and K-Means...</p>'
+                );
+              }
+            }
+          } catch (error) {
+            console.error(
+              `Error handling 'show' event for tab ${tabId}:`,
+              error
+            );
+            const plotSelector =
+              `#${tabId.replace("_tab", "-plot")}` ||
+              `#${tabId.replace("_tab", "-container")}`; // Fallback selector
+            try {
+              const plotContainer = document.querySelector(plotSelector);
+              if (plotContainer)
+                plotContainer.innerHTML = `<p class="uk-text-danger uk-text-center uk-padding">Failed to load plot: ${error}</p>`;
+              else console.error("Plot container not found:", plotSelector);
+            } catch (renderError) {
+              console.error(
+                "Failed to render error message in:",
+                plotSelector,
+                renderError
+              );
+            }
+          }
+        });
+
+        setTimeout(() => {
+          // Trigger initial tab show
+          try {
+            const switcherInstance = UIkit.switcher(switcherElement);
+            if (!switcherInstance) {
+              console.error("Failed to get UIkit switcher instance.");
+              return;
+            }
+            const initialActiveLi = tabsContainer.querySelector("li.uk-active");
+            let initialIndex = 0;
+            if (initialActiveLi) {
+              const liIndex = Array.from(tabsContainer.children).indexOf(
+                initialActiveLi
+              );
+              if (liIndex !== -1) initialIndex = liIndex;
+            }
+            console.log("Attempting to show initial tab index:", initialIndex);
+            switcherInstance.show(initialIndex);
+          } catch (e) {
+            console.error("Error showing initial switcher tab:", e);
+          }
+        }, 200);
+      }
+
+      // --- Initial Load ---
+      async function initialize() {
+        try {
+          // // 1. Load Main Data
+          // const { data, columnTypes } = await loadTypedCSV(
+          //   "../data/final_data.csv"
+          // );
+          kmeans = await fetch("http://18.209.163.81/k-means").then((res) =>
+            res.ok ? res.json() : Promise.reject(`KMeans HTTP ${res.status}`)
+          );
+          dataMDS = await fetch("http://18.209.163.81/mds-data").then((res) =>
+            res.ok ? res.json() : Promise.reject(`HTTP ${res.status}`)
+          );
+          showLab1();
+          addBiplot(kmeans["elbow"]);
+          theK = kmeans["elbow"] - 1;
+          document.getElementById(`PC${di}`).dispatchEvent(event);
+
+          await addSignificancePlot(di + 1, kmeans, kmeans["elbow"]);
+          addMSEPlot();
+
+          // document.getElementById(`K-0`).dispatchEvent(event);
+          document.getElementById(`K-${kmeans.elbow}`).dispatchEvent(event);
+          setupTabListeners(); // Includes triggering the initial active tab view
+        } catch (error) {
+          console.error("Initialization failed:", error);
+          document.body.innerHTML =
+            `<div class="uk-alert uk-alert-danger uk-margin"><p>Initialization Error: ${error}. Please check console and backend.</p></div>` +
+            document.body.innerHTML;
+        }
+      }
+      initialize();
+      const selectElement = document.querySelector('select[name="cluster"]');
+      if (selectElement) {
+        selectElement.addEventListener("change", function () {
+          console.log("Selected cluster:", selectElement.value);
+          theK = selectElement.value;
+          updatePlotsDependentOnK(theK);
+        });
+
+        console.log("Initially selected cluster:", selectElement.value);
+      } else {
+        console.log("No <select> found inside <uk-select>");
+      }
+    </script>
+  </body>
+</html>

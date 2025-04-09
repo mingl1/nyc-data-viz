@@ -1,0 +1,34 @@
+.chart-title {
+  font-size: 16px;
+  text-decoration: underline;
+  fill: hsl(var(--foreground));
+}
+
+.axis-label {
+  font-size: 12px;
+  text-anchor: middle;
+}
+
+.chart-container {
+  max-height: 80vh;
+}
+
+.control-panel {
+  max-height: 80vh;
+  overflow-y: clip;
+}
+
+.control-section {
+  margin-left: 1rem;
+  width: 100%;
+}
+
+.control-group {
+  margin-bottom: 0.5rem;
+}
+
+.control-select {
+  width: 90%;
+  padding-left: 0;
+  padding-right: 0;
+}
