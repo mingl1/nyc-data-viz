@@ -153,7 +153,7 @@
               <li><a href="#" id="visualization_tab">Lab1</a></li>
             </ul>
           </div>
-          <div class="ml-8 mt-4 h-10">
+          <div class="ml-8 mt-4 h-10" id="numClusterSelector">
             <select
               name="cluster"
               style="
@@ -5067,7 +5067,16 @@
           d3.select("#scatter-matrix").html("");
         }
       }
-
+      function showNumClusterSelector() {
+        const numClusterSelector =
+          document.getElementById("numClusterSelector");
+        numClusterSelector.style.display = "block";
+      }
+      function hideNumClusterSelector() {
+        const numClusterSelector =
+          document.getElementById("numClusterSelector");
+        numClusterSelector.style.display = "none";
+      }
       // --- Tab Activation Logic ---
       function setupTabListeners() {
         /* ... Keep corrected version from previous ... */
@@ -5101,10 +5110,8 @@
           //   res.ok ? res.json() : Promise.reject(`HTTP ${res.status}`)
           // );
           try {
-            if (tabId === "pca_tab") {
-              // PCA plots are likely already initialized, but maybe redraw if needed?
-              // Or ensure layout is correct. Usually no action needed here if initialized correctly.
-            } else if (tabId === "mds_data_tab") {
+            if (tabId === "mds_data_tab") {
+              showNumClusterSelector();
               if (!dataMDS) {
                 console.log("Fetching Data MDS...");
                 dataMDS = await fetch(
@@ -5125,6 +5132,7 @@
                   '<p class="uk-text-warning uk-text-center uk-padding">Waiting for K-Means data...</p>'
                 );
             } else if (tabId === "mds_variables_tab") {
+              showNumClusterSelector();
               if (!variablesMDS) {
                 console.log("Fetching Variables MDS...");
                 variablesMDS = await fetch(
@@ -5137,6 +5145,7 @@
               }
               createVariablesMDSPlot(variablesMDS);
             } else if (tabId === "pcp_tab") {
+              showNumClusterSelector();
               if (allLoadedData.length > 0 && kmeans) {
                 console.log("Rendering PCP plot with order:", pcpAxesOrder);
                 createPCPPlot(
@@ -5151,6 +5160,8 @@
                   '<p class="uk-text-warning uk-text-center uk-padding">Waiting for data and K-Means...</p>'
                 );
               }
+            } else {
+              hideNumClusterSelector();
             }
           } catch (error) {
             console.error(
